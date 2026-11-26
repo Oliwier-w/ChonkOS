@@ -14,6 +14,7 @@ A minimal Linux setup built on Debian 13 (trixie) for daily development and home
 ## Packages
 - `chonkos-branding` — system identity and Chonky fastfetch config
 - `chonkos-core` — base CLI toolset
+- `chonkos-tools` — `chonk` and `scale` CLI tools (see [docs/TOOLS.md](docs/TOOLS.md))
 
 ## Status
 Early work in progress (0.1).

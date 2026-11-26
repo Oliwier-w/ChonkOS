@@ -1,9 +1,9 @@
 Package: chonkos-core
-Version: 0.1.0
+Version: 0.2.0
 Section: metapackages
 Priority: optional
 Architecture: all
 Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
-Depends: chonkos-branding, git, curl, ca-certificates, gnupg, fastfetch, ripgrep, fd-find, fzf, tmux, btop, zram-tools
+Depends: chonkos-branding, chonkos-tools, git, curl, ca-certificates, gnupg, fastfetch, ripgrep, fd-find, fzf, tmux, btop, zram-tools
 Description: Base CLI packages for ChonkOS
  Metapackage pulling core terminal tools and ChonkOS branding.

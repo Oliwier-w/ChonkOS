@@ -1,0 +1,43 @@
+.TH SCALE 1 "2025" "ChonkOS" "User Commands"
+.SH NAME
+scale \- resource and size inspection
+.SH SYNOPSIS
+.B scale
+.RB [ \-\-json ]
+.I command
+.SH DESCRIPTION
+.B scale
+prints sorted tables (largest first, limited to \fB\-\-top\fR rows) of memory,
+boot, package, or directory usage.
+Exit status is 0 on success and non-zero on error.
+.SH OPTIONS
+.TP
+.BR \-\-json
+Print machine-readable JSON on stdout instead of a table.
+.SH COMMANDS
+.TP
+.BR ram " [\fB\-\-top\fR N]"
+Top processes by PSS (from /proc/<pid>/smaps_rollup), plus ZRAM statistics
+from /sys/block/zram0/mm_stat. Default N=10. JSON unit: bytes.
+.TP
+.BR boot " [\fB\-\-top\fR N]"
+Boot time per unit from systemd-analyze blame. Default N=10. JSON unit: ms.
+.TP
+.BR pkg " [\fB\-\-top\fR N]"
+Installed packages by installed size, tagged [manual] or [auto] per
+apt-mark showmanual. Default N=15. JSON unit: bytes.
+.TP
+.BR dir " [\fIpath\fR] [\fB\-\-top\fR N]"
+Sizes of immediate subdirectories of \fIpath\fR (default .). Refuses /proc,
+/sys, /dev. Default N=15. JSON unit: bytes.
+.SH EXAMPLES
+.TP
+scale ram --top 20
+.TP
+scale --json boot
+.TP
+scale pkg --top 30
+.TP
+scale dir /var/log
+.SH SEE ALSO
+.BR chonk (1)

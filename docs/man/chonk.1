@@ -1,0 +1,61 @@
+.TH CHONK 1 "2025" "ChonkOS" "User Commands"
+.SH NAME
+chonk \- system maintenance for ChonkOS
+.SH SYNOPSIS
+.B chonk
+.RB [ \-\-json ]
+.I command
+.SH DESCRIPTION
+.B chonk
+performs maintenance tasks on a ChonkOS system: health checks, APT updates,
+cache cleaning, and access to bundled tool documentation.
+Exit status is 0 on success and 1 on any error.
+.SH OPTIONS
+.TP
+.BR \-\-json
+Print machine-readable JSON on stdout instead of a table.
+.SH COMMANDS
+.TP
+.B doctor
+Check system health: ChonkOS os-release ID, APT sources, keyring, ZRAM swap
+(/dev/zram0), root disk usage (warning above 85%), and failed systemd units.
+Exits 1 if any check fails.
+.TP
+.BR update " [\fB\-\-yes\fR]"
+Run apt-get update, upgrade, and autoremove. Requires root; exits 1 otherwise.
+Without \fB\-\-yes\fR, apt prompts interactively.
+.TP
+.BR clean " [\fB\-\-dry\-run\fR] [\fB\-\-dev\fR]"
+Without \fB\-\-dry\-run\fR (requires root): apt-get clean, apt-get autoremove,
+journalctl \-\-vacuum-size=50M. \fB\-\-dev\fR also scans $HOME for stale
+(>30 days) target/ and node_modules/ directories; without \fB\-\-dry\-run\fR
+each removal asks for y/N confirmation.
+.TP
+.BR docs " [\fItool\fR]"
+Print the bundled tools documentation from
+.IR /usr/share/doc/chonkos/TOOLS.md .
+With \fItool\fR (chonk or scale), print only that tool's section; unknown
+names exit 1.
+.SH EXAMPLES
+.TP
+chonk doctor
+.TP
+chonk --json doctor
+.TP
+sudo chonk update --yes
+.TP
+sudo chonk clean --dry-run --dev
+.TP
+chonk docs scale
+.SH FILES
+.TP
+.I /usr/share/doc/chonkos/TOOLS.md
+Bundled tools documentation.
+.TP
+.I /etc/apt/sources.list.d/chonkos.sources
+ChonkOS APT repository configuration.
+.TP
+.I /usr/share/keyrings/chonkos.gpg
+ChonkOS APT repository keyring.
+.SH SEE ALSO
+.BR scale (1)
