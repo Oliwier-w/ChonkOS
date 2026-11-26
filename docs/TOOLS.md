@@ -1,11 +1,11 @@
 # ChonkOS Tools
 
-User documentation for `chonk` and `scale`, shipped in the `chonkos-tools` package.
+User documentation for the commands in the `chonkos-tools` package (v0.3.0).
 
-Both tools share the same conventions:
+All five tools share these conventions.
 
 - Global flag `--json` prints machine-readable JSON on stdout instead of a table.
-- Exit code `0` on success, `1` on any error (including failed preconditions such as missing root).
+- Exit code `0` indicates success. Operational failures return `1`. `nap stay` returns the child process's exit code.
 - Errors are printed to stderr as a plain message (or as `{"error": "..."}` with `--json`).
 
 ## chonk
@@ -67,7 +67,7 @@ With `--json`:
 
 ### chonk docs [tool]
 
-Prints the bundled tools documentation from `/usr/share/doc/chonkos/TOOLS.md`. With a tool name (`chonk` or `scale`), prints only that tool's section; unknown names exit `1`.
+Prints the bundled tools documentation. Supply `chonk`, `scale`, `nap`, `whisker`, or `seal` to select one section. Unknown names exit with code `1`.
 
 ```
 chonk docs
@@ -126,8 +126,143 @@ scale dir . --top 5
 scale --json dir /home
 ```
 
-## Planned (v0.3)
+## nap
 
-- `nap` — suspend/hibernate helper.
-- `whisker` — lightweight system information display.
-- `seal` — lock down permissions or verify package signatures.
+Power and lid management.
+
+```
+nap [--json] <command>
+```
+
+### nap status
+
+Reports batteries (status, percent, health percent, watts), AC adapters (online), thermal zones (celsius), and the configured lid action read from `/etc/systemd/logind.conf.d/90-chonkos-lid.conf` (`"system default"` when the drop-in is absent).
+
+```
+nap status
+nap --json status
+```
+
+### nap stay DURATION | nap stay -- COMMAND [ARG...]
+
+Holds a `systemd-inhibit` lock (`--what=idle:sleep:handle-lid-switch --who=nap --mode=block`) so idle, suspend and lid handling are blocked. With a duration, the lock lasts that long; with `-- COMMAND`, it lasts until the command exits. Exit code is the wrapped command's exit code (or `128 + signal`); for a plain duration the exit code is `0`. With `--json`, the child's stdout is redirected to stderr and the tool prints `{"exit_code": N}`.
+
+DURATION is a sequence of `<number><unit>` segments with unit `s`, `m` or `h` (for example `90s`, `45m`, `1h30m`); it must be positive and must not overflow.
+
+```
+nap stay 1h30m
+nap stay 30m -- make -j4
+nap --json stay -- systemctl restart myapp
+```
+
+### nap lid status | sleep | ignore
+
+Reads or changes the lid switch action. `status` prints the current drop-in contents. `sleep` sets `HandleLidSwitch=suspend` and `HandleLidSwitchExternalPower=suspend`; `ignore` sets both to `ignore`. The drop-in is written atomically to `/etc/systemd/logind.conf.d/90-chonkos-lid.conf`. `sleep` and `ignore` require root and exit `1` otherwise. The tool never restarts `systemd-logind`: it only runs `systemctl reload systemd-logind` and, if that fails, reports a warning that the change takes effect after login or reboot.
+
+```
+nap lid status
+sudo nap lid ignore
+sudo nap lid sleep
+```
+
+## whisker
+
+Socket, network and port inspection.
+
+```
+whisker [--json] <command>
+```
+
+### whisker ports [--all]
+
+Lists listening sockets (TCP state `0A`, UDP state `07`) parsed from `/proc/net/tcp`, `/proc/net/tcp6`, `/proc/net/udp`, `/proc/net/udp6`, with the owning PID and process name resolved via `/proc/<pid>/fd`. Each row is tagged `exposed` (unspecified address), `local` (loopback) or `interface`. `--all` includes sockets in other states. Without `--json` a table is printed; with `--json`:
+
+```json
+{"sockets":[{"protocol":"tcp","address":"0.0.0.0:8080","state":"0A","exposure":"exposed","pid":1234,"process":"python3"}]}
+```
+
+When some processes are hidden due to permissions, a `"hint": "Use sudo to see hidden processes."` key is added.
+
+### whisker kill PORT [--force] [--yes]
+
+Finds the processes listening on PORT and terminates them. Sends SIGTERM by default, SIGKILL with `--force`. Without `--yes`, asks `y/N` on stderr first and aborts (exit `0`, `"terminated": false`) unless the answer is `y`. The owner is re-validated immediately before the signal is sent. Guards: PID 1, PID 0 and the tool's own PID are always protected, and OpenSSH server processes are always protected. Exits `1` if no listener is found on PORT or the owner cannot be determined (try sudo).
+
+```
+whisker kill 8080
+whisker kill 8080 --yes
+whisker kill 22 --force --yes
+```
+
+### whisker net
+
+Reports active interfaces with their addresses (via `ip -j addr show up`, falling back to `/sys/class/net`), the default gateway (from `/proc/net/route`), DNS nameservers (`/etc/resolv.conf`), the Tailscale backend state, and TCP connect latency in milliseconds to `1.1.1.1:53`.
+
+```
+whisker net
+whisker --json net
+```
+
+### whisker watch HOST:PORT [--timeout SECONDS] [--interval MILLISECONDS]
+
+Waits until a TCP connection to HOST:PORT succeeds. `--timeout` is in seconds (default `60`), `--interval` is the pause between attempts in milliseconds (default `500`, must be positive). Exit code `0` with `{"open":true,"wait_ms":N}` when the port opens, exit code `1` with `{"open":false,"wait_ms":N}` on timeout.
+
+```
+whisker watch 192.168.1.10:22
+whisker watch example.com:443 --timeout 10 --interval 200
+```
+
+## seal
+
+Configuration snapshots ("seals") of tracked system files, stored as `/var/lib/chonkos/seals/<id>/` directories containing `manifest.json`, the file copies under `files/`, and `packages.txt`.
+
+```
+seal [--json] [--store PATH] <command>
+```
+
+Tracked paths: `/etc/apt/sources.list`, `/etc/apt/sources.list.d`, `/etc/default/zramswap`, `/etc/fstab`, `/etc/systemd/logind.conf.d`, `/etc/xdg/fastfetch`, `/etc/sysctl.d`. Symlinks are skipped, and secret-looking file names (components ending in `_key`, `.pem` or `.key`, or containing `\`, `:` or NUL) are excluded from snapshots.
+
+### seal mark MESSAGE
+
+Creates a snapshot. The ID is `<UTC timestamp>-<slug>` where the slug is the first 48 alphanumeric characters of MESSAGE, lowercased. Each tracked file is stored with its SHA-256 in `manifest.json`; manually installed packages (`apt-mark showmanual`) are stored in `packages.txt`. With `--json` prints `{"id": "..."}`.
+
+```
+seal mark "before upgrade"
+```
+
+### seal list
+
+Lists snapshots, newest first, as a table (`ID`, `Date`, `Description`, `Files`, `Packages`) or, with `--json`, as an array of `{"id","date","message","files","packages"}`.
+
+### seal diff [ID]
+
+Compares the current system with the given snapshot (default: the latest; exits `1` when there are none). With `--json`:
+
+```json
+{"id":"...","files":{"modified":["/etc/fstab"],"removed":[],"added":["/etc/sysctl.d/99-x.conf"]},"packages":{"added":["htop"],"removed":[],"modified":[]}}
+```
+
+`packages` is `null` when package tracking is unavailable.
+
+### seal restore ID TARGET_PATH [--dry-run]
+
+Restores a single tracked absolute path from a snapshot. TARGET_PATH must be inside the tracked set and present in the snapshot's manifest. An existing target file is first copied to `<name>.bak.<timestamp>` next to it; the restored content is checksum-verified against the manifest. `--dry-run` verifies the checksum without touching the target. Prints `{"target","backup","dry_run"}` with `--json`. Exits `1` on forbidden paths, checksum mismatch, or a changed target.
+
+```
+sudo seal restore 20250101-120000-before-upgrade /etc/fstab --dry-run
+sudo seal restore 20250101-120000-before-upgrade /etc/fstab
+```
+
+### seal export [FILE]
+
+Writes a JSON system profile (`manual` package list, OS name/version from `/etc/os-release`, and SHA-256 of every tracked file) to FILE, or to stdout when FILE is omitted.
+
+```
+seal export
+seal export /root/chonkos-profile.json
+```
+
+## Security notes
+
+- `nap lid sleep|ignore` never restarts or kills `systemd-logind`; it only reloads it (`systemctl reload systemd-logind`) and warns if the reload fails.
+- `whisker kill` refuses to signal PID 1, PID 0 and itself, and refuses to signal OpenSSH server processes.
+- `seal` excludes traversal paths, symlinks, hard-linked files on Linux, common private-key filenames, and recognized private-key headers, and `seal restore` creates `<name>.bak.<timestamp>` backups instead of overwriting in place.

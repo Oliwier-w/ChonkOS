@@ -1,0 +1,17 @@
+[package]
+name = "seal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+chonk-lib = { path = "../chonk-lib" }
+serde.workspace = true
+sha2 = "0.10"
+tempfile = "3"
+time = { version = "0.3", features = ["formatting", "macros"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"

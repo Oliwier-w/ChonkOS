@@ -4,8 +4,8 @@
 
 ```
 ┌─────────────────────────────────────────────┐
-│ chonkos-tools (chonk, scale) — static Rust  │
-│ binaries (musl), installed via APT          │
+│ chonkos-tools (chonk, scale, nap, whisker, │
+│ seal) — static Rust binaries (musl) via APT│
 ├─────────────────────────────────────────────┤
 │ chonkos-core — metapackage: base CLI tools  │
 │ (git, curl, ripgrep, fd-find, fzf, tmux,    │
@@ -41,6 +41,7 @@
 
 ## Tools
 
-- `chonk` and `scale` are written in Rust and built as static musl binaries (no runtime library dependencies).
+- `chonk`, `scale`, `nap`, `whisker` and `seal` are written in Rust and built as five static musl binaries (no runtime library dependencies).
 - They are packaged in `chonkos-tools` and distributed through the signed APT repository.
-- Both tools support `--json` output; see [TOOLS.md](TOOLS.md).
+- All five tools support `--json` output; see [TOOLS.md](TOOLS.md).
+- `seal` stores its configuration snapshots under `/var/lib/chonkos/seals/`.

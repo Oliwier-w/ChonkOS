@@ -1,0 +1,62 @@
+.TH NAP 1 "2025" "ChonkOS" "User Commands"
+.SH NAME
+nap \- power and lid management
+.SH SYNOPSIS
+.B nap
+.RB [ \-\-json ]
+.I command
+.SH DESCRIPTION
+.B nap
+reports power state and controls systemd-inhibit locks and the lid switch
+action. Exit status is 0 on success and 1 on any error; \fBnap stay\fR
+returns the wrapped command's exit code.
+.SH OPTIONS
+.TP
+.BR \-\-json
+Print machine-readable JSON on stdout instead of a table.
+.SH COMMANDS
+.TP
+.B status
+Report batteries (status, percent, health percent, watts), AC adapters,
+thermal zones, and the configured lid action from
+.IR /etc/systemd/logind.conf.d/90-chonkos-lid.conf .
+.TP
+.BR stay " " DURATION
+Hold a systemd-inhibit lock (idle:sleep:handle-lid-switch, mode block) for
+DURATION, e.g. 90s, 45m, 1h30m. DURATION must be positive.
+.TP
+.BR stay " \-\- " COMMAND " [ARG...]"
+Hold the inhibitor lock until COMMAND exits; the exit code of nap is the
+exit code of COMMAND (128+signal if killed). With \fB\-\-json\fR the child's
+stdout is redirected to stderr and nap prints {"exit_code": N}.
+.TP
+.BR lid " status"
+Print the current lid drop-in contents.
+.TP
+.BR lid " sleep"
+Set HandleLidSwitch and HandleLidSwitchExternalPower to suspend. Requires
+root. Never restarts systemd-logind; only runs
+.BR "systemctl reload systemd-logind" .
+.TP
+.BR lid " ignore"
+Set both lid actions to ignore. Requires root; same reload behavior.
+.SH EXAMPLES
+.TP
+nap status
+.TP
+nap --json status
+.TP
+nap stay 1h30m
+.TP
+nap stay -- make -j4
+.TP
+nap lid status
+.TP
+sudo nap lid ignore
+.SH FILES
+.TP
+.I /etc/systemd/logind.conf.d/90-chonkos-lid.conf
+ChonkOS logind lid drop-in written by \fBnap lid\fR.
+.SH SEE ALSO
+.BR chonk (1),
+.BR whisker (1)

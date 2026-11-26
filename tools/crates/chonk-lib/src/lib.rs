@@ -68,3 +68,47 @@ pub fn size(path: &Path) -> Result<u64> {
     }
     Ok(total)
 }
+
+pub fn report(result: Result<(serde_json::Value, i32)>, machine: bool) -> i32 {
+    let (value, code) = match result {
+        Ok(v) => v,
+        Err(e) if machine => (serde_json::json!({"error":format!("{e:#}")}), 1),
+        Err(e) => {
+            eprintln!("{e:#}");
+            return 1;
+        }
+    };
+    if machine {
+        println!("{value}")
+    } else {
+        fn rows(key: &str, v: &serde_json::Value, out: &mut Vec<(String, String)>) {
+            match v {
+                serde_json::Value::Object(m) if !m.is_empty() => {
+                    for (k, item) in m {
+                        let label = if key.is_empty() {
+                            k.clone()
+                        } else {
+                            format!("{key} {k}")
+                        };
+                        rows(&label, item, out);
+                    }
+                }
+                serde_json::Value::Array(a) if !a.is_empty() => {
+                    for item in a {
+                        rows(key, item, out)
+                    }
+                }
+                _ => out.push((
+                    key.into(),
+                    v.as_str()
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| v.to_string()),
+                )),
+            }
+        }
+        let mut data = Vec::new();
+        rows("", &value, &mut data);
+        table(&data);
+    }
+    code
+}

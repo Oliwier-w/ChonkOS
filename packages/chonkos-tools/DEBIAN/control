@@ -1,8 +1,8 @@
 Package: chonkos-tools
-Version: 0.2.0
+Version: 0.3.0
 Section: utils
 Priority: optional
 Architecture: amd64
 Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
 Description: Native Rust CLI toolkit for ChonkOS
- Minimal static system tools (chonk, scale) and man pages for ChonkOS.
+ Minimal static system tools (chonk, scale, nap, whisker, seal) and man pages for ChonkOS.

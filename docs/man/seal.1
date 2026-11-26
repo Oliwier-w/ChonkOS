@@ -1,0 +1,63 @@
+.TH SEAL 1 "2025" "ChonkOS" "User Commands"
+.SH NAME
+seal \- configuration snapshots of tracked system files
+.SH SYNOPSIS
+.B seal
+.RB [ \-\-json ]
+.RB [ \-\-store " PATH" ]
+.I command
+.SH DESCRIPTION
+.B seal
+records and restores snapshots ("seals") of tracked configuration files.
+Snapshots live in
+.I /var/lib/chonkos/seals/<id>/
+as manifest.json, file copies under files/, and packages.txt. Exit status is
+0 on success and 1 on any error.
+Tracked paths: /etc/apt/sources.list, /etc/apt/sources.list.d,
+/etc/default/zramswap, /etc/fstab, /etc/systemd/logind.conf.d,
+/etc/xdg/fastfetch, /etc/sysctl.d. Symlinks and secret-looking file names
+(components ending in _key, .pem or .key) are excluded.
+.SH OPTIONS
+.TP
+.BR \-\-json
+Print machine-readable JSON on stdout instead of a table.
+.TP
+.BI \-\-store " PATH"
+Use PATH as the snapshot store instead of /var/lib/chonkos/seals.
+.SH COMMANDS
+.TP
+.BR mark " MESSAGE"
+Create a snapshot with ID <UTC timestamp>-<slug>; stores SHA-256 per tracked
+file and the manually installed packages (apt-mark showmanual).
+.TP
+.B list
+List snapshots, newest first.
+.TP
+.BR diff " [\fIID\fR]"
+Compare the system with the given snapshot (default: latest).
+.TP
+.BR restore " ID TARGET_PATH [\fB\-\-dry\-run\fR]"
+Restore one tracked absolute path from a snapshot; an existing file is backed
+up to <name>.bak.<timestamp> and the restored content is checksum-verified.
+\fB\-\-dry\-run\fR only verifies.
+.TP
+.BR export " [\fIFILE\fR]"
+Write a JSON system profile (manual packages, OS name/version, tracked file
+hashes) to FILE or stdout.
+.SH EXAMPLES
+.TP
+seal mark "before upgrade"
+.TP
+seal list
+.TP
+seal diff
+.TP
+sudo seal restore 20250101-120000-before-upgrade /etc/fstab --dry-run
+.TP
+seal export /root/profile.json
+.SH FILES
+.TP
+.I /var/lib/chonkos/seals/
+Default snapshot store.
+.SH SEE ALSO
+.BR chonk (1)

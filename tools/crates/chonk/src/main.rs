@@ -262,15 +262,13 @@ fn execute(cmd: Cmd) -> Result<(Value, bool)> {
             ))
         }
         Cmd::Docs { tool } => {
-            let doc=fs::read_to_string("/usr/share/doc/chonkos/TOOLS.md").unwrap_or_else(|_|"## chonk\nchonk doctor | update [--yes] | clean [--dry-run] [--dev] | docs [tool]\n## scale\nscale ram | boot | pkg | dir [path]  (use --top N)".into());
+            let fallback = include_str!("../../../../docs/TOOLS.md");
+            let doc = fs::read_to_string("/usr/share/doc/chonkos/TOOLS.md")
+                .unwrap_or_else(|_| fallback.into());
             let body = if let Some(name) = tool {
-                let mut lines = doc.lines().skip_while(|l| {
-                    !l.starts_with('#')
-                        || !l
-                            .trim_start_matches('#')
-                            .split_whitespace()
-                            .any(|w| w.trim_matches('`') == name)
-                });
+                let mut lines = doc
+                    .lines()
+                    .skip_while(|l| l.strip_prefix("## ") != Some(name.as_str()));
                 let first = lines
                     .next()
                     .ok_or_else(|| anyhow!("Unknown tool: {name}"))?;
@@ -352,6 +350,23 @@ mod tests {
         assert!(base.join("moved/keep").is_file());
         fs::remove_dir_all(base)?;
         Ok(())
+    }
+    #[test]
+    fn docs_by_tool() {
+        for name in ["chonk", "scale", "nap", "whisker", "seal"] {
+            let (value, ok) = execute(Cmd::Docs {
+                tool: Some(name.into()),
+            })
+            .unwrap();
+            let body = value["docs"].as_str().unwrap();
+            assert!(ok);
+            assert_eq!(body.lines().next(), Some(format!("## {name}").as_str()));
+            assert_eq!(body.lines().filter(|l| l.starts_with("## ")).count(), 1);
+        }
+        assert!(execute(Cmd::Docs {
+            tool: Some("ram".into())
+        })
+        .is_err());
     }
     #[test]
     fn paths() {

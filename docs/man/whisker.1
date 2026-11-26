@@ -1,0 +1,53 @@
+.TH WHISKER 1 "2025" "ChonkOS" "User Commands"
+.SH NAME
+whisker \- socket, network and port inspection
+.SH SYNOPSIS
+.B whisker
+.RB [ \-\-json ]
+.I command
+.SH DESCRIPTION
+.B whisker
+lists listening sockets with their owners, terminates processes bound to a
+port, and reports network status. Exit status is 0 on success and 1 on any
+error; \fBwatch\fR exits 1 on timeout.
+.SH OPTIONS
+.TP
+.BR \-\-json
+Print machine-readable JSON on stdout instead of a table.
+.SH COMMANDS
+.TP
+.BR ports " [\fB\-\-all\fR]"
+List listening sockets from /proc/net/{tcp,tcp6,udp,udp6} with owner PID and
+process name; each row is tagged exposed, local or interface. \fB\-\-all\fR
+includes sockets in other states.
+.TP
+.BR kill " PORT [\fB\-\-force\fR] [\fB\-\-yes\fR]"
+Terminate the processes listening on PORT: SIGTERM by default, SIGKILL with
+\fB\-\-force\fR. Asks y/N first unless \fB\-\-yes\fR. PID 1, PID 0, the tool's
+own PID and OpenSSH server processes are protected. Exits 1 when no
+listener is found or the owner is hidden (try sudo).
+.TP
+.B net
+Report active interfaces and addresses, default gateway, DNS nameservers,
+Tailscale backend state, and TCP latency to 1.1.1.1:53 in milliseconds.
+.TP
+.BR watch " HOST:PORT [\fB\-\-timeout\fR SECONDS] [\fB\-\-interval\fR MS]"
+Wait for a TCP connection to HOST:PORT. Defaults: timeout 60 s, interval
+500 ms. Exits 0 with {"open":true} when the port opens, 1 with
+{"open":false} on timeout.
+.SH EXAMPLES
+.TP
+whisker ports
+.TP
+whisker --json ports --all
+.TP
+whisker kill 8080
+.TP
+whisker kill 8080 --yes
+.TP
+whisker net
+.TP
+whisker watch 192.168.1.10:22 --timeout 10
+.SH SEE ALSO
+.BR nap (1),
+.BR chonk (1)
