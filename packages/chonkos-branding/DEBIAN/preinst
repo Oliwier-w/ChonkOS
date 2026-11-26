@@ -1,6 +1,19 @@
 #!/bin/sh
 set -e
+
 if [ "$1" = "install" ] || [ "$1" = "upgrade" ]; then
-    dpkg-divert --package chonkos-branding --add --rename \
+    owner=$(dpkg-divert --listpackage /usr/lib/os-release)
+    if [ -n "$owner" ] && [ "$owner" != "chonkos-branding" ]; then
+        echo "chonkos-branding: /usr/lib/os-release is already diverted by foreign package '$owner'; aborting." >&2
+        exit 1
+    fi
+    if [ ! -e /usr/lib/os-release.debian ] && [ -e /usr/lib/os-release ] &&
+        ! grep -q '^ID=chonkos$' /usr/lib/os-release 2>/dev/null; then
+        # /usr/lib/os-release belongs to the Essential base-files package, so the
+        # diversion must not rename it away (see dpkg-divert --no-rename). Keep a
+        # copy so postrm can restore the distribution file on removal.
+        cp -a /usr/lib/os-release /usr/lib/os-release.debian
+    fi
+    dpkg-divert --package chonkos-branding --add --no-rename \
         --divert /usr/lib/os-release.debian /usr/lib/os-release
 fi

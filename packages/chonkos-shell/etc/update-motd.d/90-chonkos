@@ -1,0 +1,13 @@
+#!/bin/sh
+# shellcheck source=/dev/null
+. /etc/os-release
+read -r seconds _ < /proc/uptime
+minutes=$((${seconds%.*} / 60))
+ram=$(awk '/^MemTotal:/ {t=$2} /^MemAvailable:/ {printf "%d/%d MiB", (t-$2)/1024, t/1024; exit}' /proc/meminfo)
+zram=inactive
+while read -r device _; do
+    [ "$device" != /dev/zram0 ] || zram=active
+done < /proc/swaps
+printf '%s | kernel %s | uptime %dh %dm | RAM %s | /dev/zram0 %s\n' \
+    "$PRETTY_NAME" "$(uname -r)" "$((minutes / 60))" "$((minutes % 60))" "$ram" "$zram"
+printf "%s\n" "Run 'chonk doctor' or 'chonk docs'"

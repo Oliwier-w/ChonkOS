@@ -1,5 +1,5 @@
 use anyhow::{anyhow, ensure, Context, Result};
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -20,34 +20,8 @@ const TRACKED: &[&str] = &[
     "etc/xdg/fastfetch",
     "etc/sysctl.d",
 ];
-#[derive(Parser)]
-struct Cli {
-    #[arg(long, global = true)]
-    json: bool,
-    #[arg(long, global = true, default_value = "/var/lib/chonkos/seals")]
-    store: PathBuf,
-    #[command(subcommand)]
-    cmd: Cmd,
-}
-#[derive(Subcommand)]
-enum Cmd {
-    Mark {
-        message: String,
-    },
-    List,
-    Diff {
-        id: Option<String>,
-    },
-    Restore {
-        id: String,
-        target_path: String,
-        #[arg(long)]
-        dry_run: bool,
-    },
-    Export {
-        file: Option<PathBuf>,
-    },
-}
+mod cli;
+use cli::{Cli, Cmd};
 #[derive(Serialize, Deserialize)]
 struct Manifest {
     id: String,
@@ -501,7 +475,19 @@ fn run(cli: Cli) -> Result<Value> {
             id,
             target_path,
             dry_run,
-        } => a.restore(&a.load(&id)?, &target_path, dry_run),
+        } => {
+            let manifest = a.load(&id)?;
+            if let Some(path) = target_path {
+                a.restore(&manifest, &path, dry_run)
+            } else {
+                let files = manifest
+                    .files
+                    .keys()
+                    .map(|path| a.restore(&manifest, path, true))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(json!({"id":id,"dry_run":true,"files":files}))
+            }
+        }
         Cmd::Export { file } => {
             let os = fs::read_to_string(a.root.join("etc/os-release"))?;
             let fields: BTreeMap<_, _> = os

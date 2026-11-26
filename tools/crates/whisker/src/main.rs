@@ -1,63 +1,17 @@
 use anyhow::{ensure, Result};
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use serde_json::{json, Value};
 use std::{
     net::{TcpStream, ToSocketAddrs},
     time::{Duration, Instant},
 };
-#[derive(Parser)]
-struct Cli {
-    #[arg(long, global = true)]
-    json: bool,
-    #[command(subcommand)]
-    cmd: Cmd,
-}
-#[derive(Subcommand)]
-enum Cmd {
-    Ports {
-        #[arg(long)]
-        all: bool,
-    },
-    Kill {
-        #[arg(value_parser = clap::value_parser!(u16).range(1..))]
-        port: u16,
-        #[arg(long)]
-        force: bool,
-        #[arg(long)]
-        yes: bool,
-    },
-    Net,
-    Watch {
-        host: String,
-        #[arg(long, default_value_t = 60)]
-        timeout: u64,
-        #[arg(long, default_value_t = 500)]
-        interval: u64,
-    },
-}
+mod cli;
+use cli::{Cli, Cmd};
 #[cfg(any(test, target_os = "linux"))]
 mod procnet {
     use super::*;
-    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-    fn word(s: &str) -> Option<[u8; 4]> {
-        Some(u32::from_str_radix(s, 16).ok()?.to_ne_bytes())
-    }
-    fn ip(s: &str) -> Option<IpAddr> {
-        if !s.is_ascii() {
-            return None;
-        }
-        match s.len() {
-            8 => Some(Ipv4Addr::from(word(s)?).into()),
-            32 => {
-                let mut bytes = [0; 16];
-                for (i, chunk) in bytes.chunks_mut(4).enumerate() {
-                    chunk.copy_from_slice(&word(&s[i * 8..i * 8 + 8])?)
-                }
-                Some(Ipv6Addr::from(bytes).into())
-            }
-            _ => None,
-        }
-    }
+    use chonk_lib::metrics::proc_ip as ip;
+    use std::net::{IpAddr, SocketAddr};
     #[derive(Debug)]
     pub struct Socket {
         pub addr: SocketAddr,
@@ -321,6 +275,31 @@ mod linux {
         )
     }
 }
+fn local_name(name: &str) -> bool {
+    let name = name.trim_end_matches('.').as_bytes();
+    name.get(name.len().saturating_sub(6)..)
+        .is_some_and(|suffix| suffix.eq_ignore_ascii_case(b".local"))
+}
+
+fn resolution_error(name: &str, error: impl std::fmt::Display) -> anyhow::Error {
+    if local_name(name) {
+        anyhow::anyhow!("DNS resolution for {name}: {error}. Static musl does not use NSS/mDNS (/etc/nsswitch.conf). Use an IP address or enable systemd-resolved with mDNS and point /etc/resolv.conf at its 127.0.0.53 stub.")
+    } else {
+        anyhow::anyhow!("DNS resolution for {name}: {error}")
+    }
+}
+
+fn resolve(name: &str, address: impl ToSocketAddrs) -> Result<Vec<std::net::SocketAddr>> {
+    let addrs = address
+        .to_socket_addrs()
+        .map_err(|e| resolution_error(name, e))?
+        .collect::<Vec<_>>();
+    if addrs.is_empty() {
+        return Err(resolution_error(name, "no addresses"));
+    }
+    Ok(addrs)
+}
+
 fn run(cli: Cli) -> Result<(Value, i32)> {
     match cli.cmd {
         Cmd::Watch {
@@ -333,12 +312,16 @@ fn run(cli: Cli) -> Result<(Value, i32)> {
             let limit = Duration::from_secs(timeout);
             let step = Duration::from_millis(interval);
             let (tx, rx) = std::sync::mpsc::channel();
+            let name = host
+                .rsplit_once(':')
+                .map_or(host.as_str(), |(name, _)| name)
+                .to_owned();
+            let lookup_name = name.clone();
             std::thread::spawn(move || {
-                let _ = tx.send(host.to_socket_addrs().map(|a| a.collect::<Vec<_>>()));
+                let _ = tx.send(resolve(&lookup_name, host));
             });
             if let Ok(addrs) = rx.recv_timeout(limit.saturating_sub(start.elapsed())) {
                 let addrs = addrs?;
-                ensure!(!addrs.is_empty(), "no addresses");
                 while start.elapsed() < limit {
                     let tick = Instant::now();
                     for a in &addrs {
@@ -355,6 +338,8 @@ fn run(cli: Cli) -> Result<(Value, i32)> {
                             .min(limit.saturating_sub(start.elapsed())),
                     );
                 }
+            } else if local_name(&name) {
+                return Err(resolution_error(&name, "lookup timed out"));
             }
             Ok((
                 json!({"open":false,"wait_ms":start.elapsed().as_millis()}),
@@ -369,7 +354,24 @@ fn run(cli: Cli) -> Result<(Value, i32)> {
             0,
         )),
         #[cfg(target_os = "linux")]
-        Cmd::Net => Ok((linux::net()?, 0)),
+        Cmd::Net { host } => {
+            let addresses = host
+                .as_deref()
+                .map(|name| {
+                    resolve(name, (name, 0)).map(|items| {
+                        items
+                            .into_iter()
+                            .map(|addr| addr.ip())
+                            .collect::<std::collections::BTreeSet<_>>()
+                    })
+                })
+                .transpose()?;
+            let mut net = linux::net()?;
+            if let Some(addresses) = addresses {
+                net["resolution"] = json!({"host":host,"addresses":addresses});
+            }
+            Ok((net, 0))
+        }
         #[cfg(not(target_os = "linux"))]
         _ => anyhow::bail!("this command requires Linux"),
     }
@@ -386,6 +388,18 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::procnet::*;
+
+    #[test]
+    fn local_dns_hint() {
+        for name in ["printer.local", "printer.LOCAL.", "ł.local"] {
+            assert!(super::resolution_error(name, "failed")
+                .to_string()
+                .contains("127.0.0.53"));
+        }
+        assert!(!super::resolution_error("local.example", "failed")
+            .to_string()
+            .contains("NSS"));
+    }
     #[test]
     fn fixtures() {
         for (proto, raw, expected) in [

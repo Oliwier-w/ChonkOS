@@ -1,0 +1,9 @@
+Package: chonkos-shell
+Version: {{VERSION}}
+Section: shells
+Priority: optional
+Architecture: all
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Depends: bash-completion, tmux, fzf, ripgrep, fd-find
+Description: Minimalist shell configuration and MOTD for ChonkOS
+ Provides Bash defaults, tmux settings and a local login summary.

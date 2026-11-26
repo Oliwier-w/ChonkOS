@@ -1,0 +1,10 @@
+Package: chonkos-system
+Version: {{VERSION}}
+Section: admin
+Priority: optional
+Architecture: all
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Depends: zram-tools, tlp
+Suggests: ufw
+Description: System tuning and hardware defaults for ChonkOS
+ Configures compressed swap, kernel parameters and laptop power management.

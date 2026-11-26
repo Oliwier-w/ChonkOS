@@ -1,0 +1,3 @@
+/etc/profile.d/chonkos.sh
+/etc/tmux.conf
+/etc/update-motd.d/90-chonkos

@@ -1,6 +1,29 @@
 #!/bin/sh
 set -e
-if [ "$1" = "remove" ]; then
-    dpkg-divert --package chonkos-branding --remove --rename \
-        --divert /usr/lib/os-release.debian /usr/lib/os-release
-fi
+
+# Restore the diverted distribution os-release. With "force" the saved copy
+# always replaces the current file (the current file is ChonkOS's); otherwise
+# it only fills a missing path so the file of a replacing package is kept.
+restore() {
+    if [ "$(dpkg-divert --listpackage /usr/lib/os-release)" = chonkos-branding ]; then
+        dpkg-divert --package chonkos-branding --remove --no-rename \
+            --divert /usr/lib/os-release.debian /usr/lib/os-release
+    fi
+    if [ -e /usr/lib/os-release.debian ]; then
+        if [ "$1" = force ] || [ ! -e /usr/lib/os-release ]; then
+            mv -f /usr/lib/os-release.debian /usr/lib/os-release
+        fi
+    fi
+}
+
+case "$1" in
+    remove|abort-install)
+        restore force
+        ;;
+    disappear)
+        restore soft
+        ;;
+    abort-upgrade)
+        # Keep the diversion: the previously installed version maintained it.
+        ;;
+esac

@@ -1,6 +1,6 @@
 [package]
 name = "nap"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 
 [dependencies]
@@ -8,4 +8,6 @@ anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 chonk-lib = { path = "../chonk-lib" }
-tempfile = "3"
+
+[dev-dependencies]
+tempfile.workspace = true

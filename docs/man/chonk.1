@@ -8,7 +8,8 @@ chonk \- system maintenance for ChonkOS
 .SH DESCRIPTION
 .B chonk
 performs maintenance tasks on a ChonkOS system: health checks, APT updates,
-cache cleaning, and access to bundled tool documentation.
+cache cleaning, profile switching, and access to bundled
+tool documentation.
 Exit status is 0 on success and 1 on any error.
 .SH OPTIONS
 .TP
@@ -17,8 +18,9 @@ Print machine-readable JSON on stdout instead of a table.
 .SH COMMANDS
 .TP
 .B doctor
-Check system health: ChonkOS os-release ID, APT sources, keyring, ZRAM swap
-(/dev/zram0), root disk usage (warning above 85%), and failed systemd units.
+Check system health: ChonkOS os-release ID, chonkos-system sysctl drop-in
+(warning only), APT sources, keyring, ZRAM swap (/dev/zram0), root disk usage
+(warning above 85%), and failed systemd units.
 Exits 1 if any check fails.
 .TP
 .BR update " [\fB\-\-yes\fR]"
@@ -31,11 +33,34 @@ journalctl \-\-vacuum-size=50M. \fB\-\-dev\fR also scans $HOME for stale
 (>30 days) target/ and node_modules/ directories; without \fB\-\-dry\-run\fR
 each removal asks for y/N confirmation.
 .TP
+.BR profile " <\fIdev|battery|homelab|status\fR> [\fB\-\-dark\fR]"
+Show or change the active ChonkOS profile. \fIdev\fR, \fIbattery\fR and
+\fIhomelab\fR require root: they set the lid switch action (suspend, or ignore
+for \fIhomelab\fR), apply the matching TLP mode (ac, or bat for \fIbattery\fR),
+and record the profile in /var/lib/chonkos/profile. \fB\-\-dark\fR additionally
+runs \fBnap dark on\fR. The lid drop-in is reloaded, never restarted.
+\fIstatus\fR prints the current profile, lid actions, TLP mode, CPU scaling
+governor and ZRAM state. \fB\-\-json\fR is supported for both.
+.TP
+.BR card " [\fB\-\-plain\fR]"
+Print a system card: release and kernel versions, uptime, PSS across readable
+processes, ZRAM usage and compression, boot time or load average, battery and
+thermal readings, wildcard/loopback listeners and the latest seal.
+\fB\-\-plain\fR suppresses the terminal illustration and colors. With
+\fB\-\-json\fR the output carries schema_version 1 and an RFC 3339 UTC
+timestamp.
+.TP
+.BR try " [\fB\-\-label\fR NAME] \fB\-\-\fR COMMAND [ARG...]"
+Create a seal, run COMMAND synchronously, show the changes and print the
+restore preview command. In JSON mode the child output goes to stderr and
+stdout carries the JSON result. The seal store must be writable by the
+invoking user.
+.TP
 .BR docs " [\fItool\fR]"
 Print the bundled tools documentation from
-.IR /usr/share/doc/chonkos/TOOLS.md .
-With \fItool\fR (chonk or scale), print only that tool's section; unknown
-names exit 1.
+.IR /usr/share/doc/chonkos-tools/TOOLS.md .
+With \fItool\fR (chonk, scale, nap, whisker or seal), print only that tool's
+section; unknown names exit 1.
 .SH EXAMPLES
 .TP
 chonk doctor
@@ -46,11 +71,26 @@ sudo chonk update --yes
 .TP
 sudo chonk clean --dry-run --dev
 .TP
+sudo chonk profile battery
+.TP
+sudo chonk profile battery --dark
+.TP
+chonk profile status
+.TP
+chonk card --plain
+.TP
+chonk --json card
+.TP
+sudo chonk try --label "upgrade" -- apt-get upgrade
+.TP
 chonk docs scale
 .SH FILES
 .TP
-.I /usr/share/doc/chonkos/TOOLS.md
+.I /usr/share/doc/chonkos-tools/TOOLS.md
 Bundled tools documentation.
+.TP
+.I /var/lib/chonkos/profile
+Active ChonkOS profile.
 .TP
 .I /etc/apt/sources.list.d/chonkos.sources
 ChonkOS APT repository configuration.

@@ -1,78 +1,19 @@
 use anyhow::Result;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::Parser;
 use serde_json::Value;
-use std::ffi::OsString;
 
-#[derive(Parser)]
-struct Cli {
-    #[arg(long, global = true)]
-    json: bool,
-    #[command(subcommand)]
-    cmd: Cmd,
-}
-#[derive(Subcommand)]
-enum Cmd {
-    Status,
-    Stay {
-        #[arg(required_unless_present="command", conflicts_with="command",value_parser=duration)]
-        duration: Option<u64>,
-        #[arg(last=true,num_args=1..)]
-        command: Vec<OsString>,
-    },
-    Lid {
-        mode: Mode,
-    },
-}
-#[derive(Clone, ValueEnum)]
-enum Mode {
-    Sleep,
-    Ignore,
-    Status,
-}
-
-fn duration(s: &str) -> Result<u64, String> {
-    let mut rest = s;
-    let mut total = 0u64;
-    while !rest.is_empty() {
-        let n = rest.bytes().take_while(u8::is_ascii_digit).count();
-        let value = rest[..n].parse::<u64>().map_err(|_| "invalid duration")?;
-        let factor = match rest.as_bytes().get(n) {
-            Some(b's') => 1,
-            Some(b'm') => 60,
-            Some(b'h') => 3600,
-            _ => return Err("expected s, m or h".into()),
-        };
-        total = value
-            .checked_mul(factor)
-            .and_then(|x| total.checked_add(x))
-            .ok_or("duration overflow")?;
-        rest = &rest[n + 1..];
-    }
-    if total == 0 {
-        Err("duration must be positive".into())
-    } else {
-        Ok(total)
-    }
-}
+mod cli;
+#[cfg(any(target_os = "linux", test))]
+mod policy;
 #[cfg(any(test, target_os = "linux"))]
-fn battery(get: impl Fn(&str) -> Option<String>) -> Value {
-    let number = |k: &str| get(k)?.trim().parse::<u64>().ok().map(|v| v as f64);
-    let unit = if number("energy_full").is_some() {
-        "energy"
-    } else {
-        "charge"
-    };
-    let ratio = |a: &str, b: &str| {
-        Some(
-            100. * number(&format!("{unit}_{a}"))?
-                / number(&format!("{unit}_{b}")).filter(|x| *x > 0.)?,
-        )
-    };
-    let watts = number("power_now")
-        .map(|p| p / 1e6)
-        .or_else(|| Some(number("current_now")? * number("voltage_now")? / 1e12));
-    serde_json::json!({"status":get("status"),"percent":ratio("now","full"),"health_percent":ratio("full","full_design"),"watts":watts})
-}
+use chonk_lib::metrics::battery;
+#[cfg(test)]
+use cli::duration;
+use cli::Cli;
+#[cfg(target_os = "linux")]
+use cli::Cmd;
+#[cfg(target_os = "linux")]
+use cli::Mode;
 #[cfg(any(test, target_os = "linux"))]
 fn thermal(kind: &str, temp: &str) -> Option<Value> {
     Some(
@@ -84,11 +25,11 @@ fn thermal(kind: &str, temp: &str) -> Option<Value> {
 mod linux {
     use super::*;
     use anyhow::{ensure, Context};
+    use chonk_lib::{LidMode, LID_CONFIG};
     use serde_json::json;
-    use std::{fs, io::Write, os::unix::process::ExitStatusExt, path::Path, process::Command};
-    const LID: &str = "/etc/systemd/logind.conf.d/90-chonkos-lid.conf";
+    use std::{fs, os::unix::process::ExitStatusExt, process::Command};
     fn lid() -> Result<Value> {
-        match fs::read_to_string(LID) {
+        match fs::read_to_string(LID_CONFIG) {
             Ok(v) => Ok(json!(v)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(json!("system default")),
             Err(e) => Err(e.into()),
@@ -103,6 +44,18 @@ mod linux {
     }
     pub fn run(cmd: Cmd, machine: bool) -> Result<(Value, i32)> {
         let v = match cmd {
+            Cmd::Guard { mode } => {
+                if !matches!(mode, super::cli::Guard::Status) {
+                    ensure!(chonk_lib::root(), "Run with sudo");
+                }
+                super::policy::guard(std::path::Path::new("/"), mode)?
+            }
+            Cmd::Dark { mode } => {
+                if mode != super::cli::Dark::Status {
+                    ensure!(chonk_lib::root(), "Run with sudo");
+                }
+                super::policy::dark(std::path::Path::new("/"), mode)?
+            }
             Cmd::Status => {
                 let mut batteries = vec![];
                 let mut ac = vec![];
@@ -140,31 +93,13 @@ mod linux {
             }
             Cmd::Lid { mode: Mode::Status } => json!({"lid":lid()?}),
             Cmd::Lid { mode } => {
-                let (label, action) = match mode {
-                    Mode::Sleep => ("sleep", "suspend"),
-                    _ => ("ignore", "ignore"),
+                let (label, mode) = match mode {
+                    Mode::Sleep => ("sleep", LidMode::Sleep),
+                    _ => ("ignore", LidMode::Ignore),
                 };
                 ensure!(chonk_lib::root(), "Run with: sudo nap lid {label}");
-                let dir = Path::new(LID).parent().unwrap();
-                fs::create_dir_all(dir)?;
-                let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
-                writeln!(
-                    tmp,
-                    "[Login]\nHandleLidSwitch={action}\nHandleLidSwitchExternalPower={action}"
-                )?;
-                tmp.as_file().sync_all()?;
-                tmp.persist(LID)?;
-                fs::File::open(dir)?.sync_all()?;
-                if !Command::new("/usr/bin/systemctl")
-                    .args(["reload", "systemd-logind"])
-                    .output()
-                    .is_ok_and(|o| o.status.success())
-                {
-                    eprintln!(
-                        "Configuration saved. It takes effect when systemd-logind next reads it."
-                    );
-                }
-                json!({"lid":action})
+                chonk_lib::apply_lid(&mode)?;
+                json!({"lid":mode.action()})
             }
             Cmd::Stay { duration, command } => {
                 let mut c = Command::new("systemd-inhibit");

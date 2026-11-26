@@ -1,6 +1,10 @@
+mod card;
+mod profile;
+mod trial;
+
 use anyhow::{anyhow, ensure, Result};
 use chonk_lib::{output, root};
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use serde_json::{json, Value};
 #[cfg(any(test, target_os = "linux"))]
 use std::path::Component;
@@ -11,30 +15,8 @@ use std::{
 };
 #[cfg(target_os = "linux")]
 use std::{io::Write, path::PathBuf, time::Duration};
-#[derive(Parser)]
-struct Cli {
-    #[arg(long, global = true)]
-    json: bool,
-    #[command(subcommand)]
-    command: Cmd,
-}
-#[derive(Subcommand)]
-enum Cmd {
-    Doctor,
-    Update {
-        #[arg(long)]
-        yes: bool,
-    },
-    Clean {
-        #[arg(long)]
-        dry_run: bool,
-        #[arg(long)]
-        dev: bool,
-    },
-    Docs {
-        tool: Option<String>,
-    },
-}
+mod cli;
+use cli::{Cli, Cmd};
 fn run(cmd: &str, args: &[&str]) -> Result<()> {
     let status = Command::new(cmd)
         .args(args)
@@ -192,8 +174,18 @@ fn dev_scan(dry: bool) -> Result<Vec<Value>> {
         Err(anyhow!("Requires Linux"))
     }
 }
+fn release_field<'a>(contents: &'a str, key: &str) -> Option<&'a str> {
+    contents.lines().find_map(|line| {
+        let (name, value) = line.split_once('=')?;
+        (name == key).then(|| value.trim().trim_matches(['\'', '"']))
+    })
+}
+
 fn execute(cmd: Cmd) -> Result<(Value, bool)> {
     match cmd {
+        Cmd::Card { .. } => Ok((card::collect()?, true)),
+        Cmd::Try { .. } => unreachable!(),
+        Cmd::Profile { profile, dark } => Ok((profile::execute(profile, dark)?, true)),
         Cmd::Doctor => {
             let id = fs::read_to_string("/etc/os-release")
                 .unwrap_or_default()
@@ -213,19 +205,48 @@ fn execute(cmd: Cmd) -> Result<(Value, bool)> {
             });
             let failed = output("systemctl", &["--failed", "--no-legend"]).ok();
             let sources = Path::new("/etc/apt/sources.list.d/chonkos.sources").is_file();
-            let key = Path::new("/usr/share/keyrings/chonkos.gpg").is_file();
-            let swap = fs::read_to_string("/proc/swaps")
+            let key = [
+                "/usr/share/keyrings/chonkos.gpg",
+                "/usr/share/keyrings/chonkos-archive-keyring.gpg",
+            ]
+            .iter()
+            .any(|p| Path::new(p).is_file());
+            let system = if Path::new("/etc/sysctl.d/90-chonkos.conf").is_file() {
+                "ok"
+            } else {
+                "warn"
+            };
+            let parent_debian = fs::read_to_string("/etc/dpkg/origins/chonkos")
                 .unwrap_or_default()
                 .lines()
-                .any(|l| l.split_whitespace().next() == Some("/dev/zram0"));
+                .any(|l| {
+                    l.strip_prefix("Parent:")
+                        .is_some_and(|s| s.trim() == "Debian")
+                });
+            let id_like_debian = fs::read_to_string("/usr/lib/os-release")
+                .ok()
+                .is_some_and(|s| {
+                    release_field(&s, "ID_LIKE")
+                        .is_some_and(|v| v.split_whitespace().any(|id| id == "debian"))
+                });
+            // zram-tools activates swap with swapon(8), so no dev-zram0.swap unit
+            // exists; fall back to the unit checks for other backends.
+            let swap = chonk_lib::metrics::zram_active().unwrap_or(false)
+                || chonk_lib::unit_active("dev-zram0.swap")
+                || chonk_lib::unit_active("zramswap.service");
+            let firewall_warning = (chonk_lib::unit_active("ufw.service")
+                && chonk_lib::unit_active("nftables.service"))
+            .then_some("ufw and nftables are both active; Netfilter policies may conflict");
             let ok = id
+                && parent_debian
+                && id_like_debian
                 && sources
                 && key
                 && swap
                 && disk.is_some()
                 && failed.as_ref().is_some_and(|s| s.trim().is_empty());
             Ok((
-                json!({"chonkos":id,"apt_sources":sources,"keyring":key,"zram_active":swap,"root_used_percent":disk,"disk_warning":disk.is_some_and(|v|v>85),"failed_units":failed}),
+                json!({"timestamp":chonk_lib::utc_now()?,"chonkos":id,"chonkos-system":system,"apt_sources":sources,"keyring":key,"dpkg_parent_debian":parent_debian,"id_like_debian":id_like_debian,"zram_active":swap,"firewall_warning":firewall_warning,"root_used_percent":disk,"disk_warning":disk.is_some_and(|v|v>85),"failed_units":failed}),
                 ok,
             ))
         }
@@ -263,7 +284,7 @@ fn execute(cmd: Cmd) -> Result<(Value, bool)> {
         }
         Cmd::Docs { tool } => {
             let fallback = include_str!("../../../../docs/TOOLS.md");
-            let doc = fs::read_to_string("/usr/share/doc/chonkos/TOOLS.md")
+            let doc = fs::read_to_string("/usr/share/doc/chonkos-tools/TOOLS.md")
                 .unwrap_or_else(|_| fallback.into());
             let body = if let Some(name) = tool {
                 let mut lines = doc
@@ -286,28 +307,51 @@ fn execute(cmd: Cmd) -> Result<(Value, bool)> {
         }
     }
 }
-fn main() -> std::process::ExitCode {
+fn main() {
     let cli = Cli::parse();
+    let plain = match cli.command {
+        Cmd::Try { label, command } => {
+            let result = trial::run(label, command, cli.json);
+            let code = match result {
+                Ok((_, code)) if !cli.json => code,
+                result => chonk_lib::report(result, cli.json),
+            };
+            std::process::exit(code);
+        }
+        Cmd::Card { plain } => Some(plain),
+        _ => None,
+    };
     let (value, ok) =
-        execute(cli.command).unwrap_or_else(|e| (json!({"error":e.to_string()}), false));
+        execute(cli.command).unwrap_or_else(|e| (json!({"error":format!("{e:#}")}), false));
     if cli.json {
         println!("{value}")
     } else if let Some(doc) = value["docs"].as_str() {
         println!("{doc}")
     } else if let Some(err) = value["error"].as_str() {
         eprintln!("{err}")
+    } else if let Some(plain) = plain {
+        card::render(&value, plain)
     } else if let Some(obj) = value.as_object() {
+        if let Some(warnings) = value["warnings"].as_array() {
+            for warning in warnings.iter().filter_map(Value::as_str) {
+                eprintln!("Warning: {warning}");
+            }
+        }
         chonk_lib::table(
             &obj.iter()
-                .map(|(k, v)| (k.clone(), v.to_string()))
+                .filter(|(k, _)| k.as_str() != "warnings")
+                .map(|(k, v)| {
+                    (
+                        k.clone(),
+                        v.as_str()
+                            .map(str::to_owned)
+                            .unwrap_or_else(|| v.to_string()),
+                    )
+                })
                 .collect::<Vec<_>>(),
         )
     }
-    if ok {
-        std::process::ExitCode::SUCCESS
-    } else {
-        std::process::ExitCode::FAILURE
-    }
+    std::process::exit(i32::from(!ok));
 }
 #[cfg(test)]
 mod tests {

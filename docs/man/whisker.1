@@ -35,6 +35,12 @@ Tailscale backend state, and TCP latency to 1.1.1.1:53 in milliseconds.
 Wait for a TCP connection to HOST:PORT. Defaults: timeout 60 s, interval
 500 ms. Exits 0 with {"open":true} when the port opens, 1 with
 {"open":false} on timeout.
+.SH .local RESOLUTION
+The whisker binary is statically linked against musl, so glibc NSS modules
+(including mDNS) are unavailable and hostnames under \fB.local\fR cannot be
+resolved by the tool itself. \fBnet\fR and \fBwatch\fR detect failed
+\fB.local\fR lookups, report this limitation, and suggest using a direct IP
+address or the systemd-resolved stub at 127.0.0.53.
 .SH EXAMPLES
 .TP
 whisker ports
@@ -46,6 +52,8 @@ whisker kill 8080
 whisker kill 8080 --yes
 .TP
 whisker net
+.TP
+whisker net printer.local
 .TP
 whisker watch 192.168.1.10:22 --timeout 10
 .SH SEE ALSO

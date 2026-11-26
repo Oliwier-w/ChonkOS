@@ -1,0 +1,6 @@
+# The release intentionally ships self-contained musl executables.
+chonkos-tools: statically-linked-binary *usr/bin/chonk*
+chonkos-tools: statically-linked-binary *usr/bin/scale*
+chonkos-tools: statically-linked-binary *usr/bin/nap*
+chonkos-tools: statically-linked-binary *usr/bin/whisker*
+chonkos-tools: statically-linked-binary *usr/bin/seal*

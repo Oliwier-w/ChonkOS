@@ -2,10 +2,80 @@ use anyhow::{ensure, Context, Result};
 use serde::Serialize;
 use std::{
     fs,
-    io::{self, IsTerminal},
+    io::{self, IsTerminal, Write},
     path::Path,
     process::Command,
 };
+
+pub const LID_CONFIG: &str = "/etc/systemd/logind.conf.d/90-chonkos-lid.conf";
+pub const SEAL_STORE: &str = "/var/lib/chonkos/seals";
+pub mod metrics;
+
+pub fn utc_now() -> Result<String> {
+    Ok(time::OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339)?)
+}
+
+pub fn unit_active(unit: &str) -> bool {
+    Command::new("systemctl")
+        .args(["is-active", "--quiet", unit])
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
+pub enum LidMode {
+    Sleep,
+    Ignore,
+}
+
+impl LidMode {
+    pub fn action(&self) -> &'static str {
+        match self {
+            Self::Sleep => "suspend",
+            Self::Ignore => "ignore",
+        }
+    }
+
+    #[cfg(any(test, target_os = "linux"))]
+    fn config(&self) -> String {
+        let action = self.action();
+        format!("[Login]\nHandleLidSwitch={action}\nHandleLidSwitchExternalPower={action}\n")
+    }
+}
+
+pub fn write_public_config(path: &Path, contents: &str) -> Result<()> {
+    let dir = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(dir).with_context(|| dir.display().to_string())?;
+    let mut tmp = tempfile::NamedTempFile::new_in(dir)?;
+    tmp.write_all(contents.as_bytes())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        tmp.as_file()
+            .set_permissions(fs::Permissions::from_mode(0o644))?;
+    }
+    tmp.as_file().sync_all()?;
+    tmp.persist(path)
+        .with_context(|| path.display().to_string())?;
+    #[cfg(unix)]
+    fs::File::open(dir)?.sync_all()?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+pub fn apply_lid(mode: &LidMode) -> Result<()> {
+    write_public_config(Path::new(LID_CONFIG), &mode.config())?;
+    if !Command::new("/usr/bin/systemctl")
+        .args(["reload", "systemd-logind"])
+        .output()
+        .is_ok_and(|o| o.status.success())
+    {
+        eprintln!("Configuration saved. It takes effect when systemd-logind next reads it.");
+    }
+    Ok(())
+}
 
 pub fn output(cmd: &str, args: &[&str]) -> Result<String> {
     let out = Command::new(cmd)
@@ -41,15 +111,37 @@ pub fn json(v: &impl Serialize) -> Result<()> {
     Ok(())
 }
 pub fn table(rows: &[(String, String)]) {
-    let color = io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
+    table_with_color(rows, true);
+}
+
+pub fn table_with_color(rows: &[(String, String)], styled: bool) {
+    let stdout = io::stdout();
+    let mut output = stdout.lock();
+    write_table(
+        &mut output,
+        rows,
+        styled && stdout.is_terminal(),
+        std::env::var_os("NO_COLOR").as_deref(),
+    )
+    .expect("writing stdout");
+}
+
+fn write_table(
+    mut output: impl Write,
+    rows: &[(String, String)],
+    styled_terminal: bool,
+    no_color: Option<&std::ffi::OsStr>,
+) -> io::Result<()> {
+    let color = styled_terminal && no_color.is_none();
     let width = rows.iter().map(|r| r.0.chars().count()).max().unwrap_or(0);
     for (k, v) in rows {
         if color {
-            println!("\x1b[38;5;67m{k:width$}\x1b[0m  \x1b[36m{v}\x1b[0m")
+            writeln!(output, "\x1b[38;5;67m{k:width$}\x1b[0m  \x1b[36m{v}\x1b[0m")?;
         } else {
-            println!("{k:width$}  {v}")
+            writeln!(output, "{k:width$}  {v}")?;
         }
     }
+    Ok(())
 }
 pub fn size(path: &Path) -> Result<u64> {
     if matches!(path.to_str(), Some("/proc" | "/sys" | "/dev")) {
@@ -111,4 +203,31 @@ pub fn report(result: Result<(serde_json::Value, i32)>, machine: bool) -> i32 {
         table(&data);
     }
     code
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn no_color_suppresses_ansi_on_a_terminal() {
+        let rows = [("Ports".into(), "2".into())];
+        let mut output = Vec::new();
+        super::write_table(&mut output, &rows, true, None).unwrap();
+        assert!(output.windows(2).any(|w| w == b"\x1b["));
+        output.clear();
+        super::write_table(&mut output, &rows, true, Some("1".as_ref())).unwrap();
+        assert_eq!(output, b"Ports  2\n");
+    }
+    use super::LidMode;
+
+    #[test]
+    fn lid_configuration() {
+        assert_eq!(
+            LidMode::Sleep.config(),
+            "[Login]\nHandleLidSwitch=suspend\nHandleLidSwitchExternalPower=suspend\n"
+        );
+        assert_eq!(
+            LidMode::Ignore.config(),
+            "[Login]\nHandleLidSwitch=ignore\nHandleLidSwitchExternalPower=ignore\n"
+        );
+    }
 }

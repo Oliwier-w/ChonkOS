@@ -40,6 +40,31 @@ root. Never restarts systemd-logind; only runs
 .TP
 .BR lid " ignore"
 Set both lid actions to ignore. Requires root; same reload behavior.
+.TP
+.BR guard " enable [\fB\-\-limit\fR 60|80]"
+Set a hardware battery charge limit (default 60) and persist it in a TLP
+drop-in. IdeaPad/Legion models with the ideapad_acpi binary conservation
+switch use the factory limit for either option; ThinkPad and other models
+use charge_control_end_threshold (with charge_control_start_threshold).
+Requires root.
+.TP
+.BR guard " disable"
+Remove the hardware charge limit and the TLP drop-in. Requires root.
+.TP
+.BR guard " status"
+Report the detected interface, current settings, the TLP drop-in and the
+maximum thermal-zone temperature.
+.TP
+.BR dark " on"
+Switch off panel backlights, request TTY blanking after one minute and
+disable Wi-Fi power saving where supported; reports before/after battery
+power readings when available. Requires root.
+.TP
+.BR dark " off"
+Restore the backlights and remove the NetworkManager drop-in. Requires root.
+.TP
+.BR dark " status"
+Show current panel, console and drop-in state.
 .SH EXAMPLES
 .TP
 nap status
@@ -53,6 +78,14 @@ nap stay -- make -j4
 nap lid status
 .TP
 sudo nap lid ignore
+.TP
+sudo nap guard enable --limit 80
+.TP
+nap guard status
+.TP
+sudo nap dark on
+.TP
+nap --json dark status
 .SH FILES
 .TP
 .I /etc/systemd/logind.conf.d/90-chonkos-lid.conf

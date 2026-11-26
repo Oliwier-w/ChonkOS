@@ -1,0 +1,61 @@
+name: Package checks
+on:
+  pull_request:
+  push:
+    branches: [main, 'release/*']
+  workflow_call:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  packages:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: x86_64-unknown-linux-musl
+      - name: Check Rust and install packaging tools
+        run: |
+          dpkg --compare-versions "$(rustc -V | cut -d' ' -f2)" ge 1.93.0
+          sudo apt-get update
+          sudo apt-get install -y musl-tools dpkg-dev lintian shellcheck
+      - name: ShellCheck
+        run: |
+          shopt -s nullglob
+          shellcheck scripts/install.sh packages/*/DEBIAN/{preinst,postinst,prerm,postrm} \
+            packages/chonkos-shell/etc/profile.d/chonkos.sh packages/chonkos-shell/etc/update-motd.d/90-chonkos \
+            .github/scripts/*.sh
+      - name: Test, lint and build static binaries
+        working-directory: tools
+        run: |
+          cargo test --locked
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo build --locked --workspace --exclude xtask --release --target x86_64-unknown-linux-musl
+      - name: Enforce size budget and build packages
+        run: |
+          stage=$(mktemp -d)
+          cargo run --locked --manifest-path tools/Cargo.toml -p xtask -- stage-packages \
+            --out "$stage" --bin-dir tools/target/x86_64-unknown-linux-musl/release
+          mkdir build
+          export SOURCE_DATE_EPOCH
+          SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          for package in "$stage"/*/; do
+            dpkg-deb --root-owner-group --build "$package" build/
+          done
+          cp "$stage/metrics.json" build/
+      - name: Lint all Debian packages
+        run: lintian --fail-on error build/*.deb
+      - name: Debian 13 installation and purge
+        run: docker run --rm -v "$PWD/build:/debs:ro" -v "$PWD/.github/scripts:/scripts:ro" debian:trixie-slim bash -euo pipefail /scripts/test-install.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: checked-packages
+          path: build/
+          if-no-files-found: error

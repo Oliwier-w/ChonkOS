@@ -1,0 +1,9 @@
+Package: chonkos-core
+Version: {{VERSION}}
+Section: metapackages
+Priority: optional
+Architecture: all
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Depends: chonkos-branding, chonkos-tools, chonkos-system, chonkos-shell, chonkos-archive-keyring, git, curl, ca-certificates, gnupg, fastfetch, ripgrep, fd-find, fzf, tmux, btop
+Description: Base CLI packages for ChonkOS
+ Metapackage pulling core terminal tools, system defaults, shell config, and ChonkOS branding.

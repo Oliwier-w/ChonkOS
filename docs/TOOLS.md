@@ -1,11 +1,12 @@
 # ChonkOS Tools
 
-User documentation for the commands in the `chonkos-tools` package (v0.3.0).
+User documentation for the commands in the `chonkos-tools` package.
 
 All five tools share these conventions.
 
 - Global flag `--json` prints machine-readable JSON on stdout instead of a table.
-- Exit code `0` indicates success. Operational failures return `1`. `nap stay` returns the child process's exit code.
+- Exit code `0` indicates success. Operational failures return `1`. `nap stay` and `chonk try` return the child process's exit code.
+- Set `NO_COLOR` to disable terminal colors.
 - Errors are printed to stderr as a plain message (or as `{"error": "..."}` with `--json`).
 
 ## chonk
@@ -18,19 +19,19 @@ chonk [--json] <command>
 
 ### chonk doctor
 
-Checks system health: ChonkOS os-release ID, APT sources, keyring, ZRAM swap, root disk usage, and failed systemd units.
+Checks the ChonkOS release ID, Debian origin and `ID_LIKE`, the sysctl drop-in, APT sources, keyring, active `/dev/zram0` swap, root disk usage, and failed systemd units. The keyring is accepted at `/usr/share/keyrings/chonkos.gpg` or `/usr/share/keyrings/chonkos-archive-keyring.gpg`. Reports a warning when both UFW and nftables are active. The report timestamp is UTC.
 
 ```
 chonk doctor
 chonk --json doctor
 ```
 
-Exit code is `1` if any check fails (missing os-release ID, sources, keyring, or zram; root disk usage above 85 % counts as a warning; any failed unit fails the check).
+Exit code is `1` if any check fails (missing os-release ID, sources, keyring, or zram; root disk usage above 85 % counts as a warning; any failed unit fails the check). The `chonkos-system` check is `warn` (not fatal) when `/etc/sysctl.d/90-chonkos.conf` is missing.
 
 With `--json`:
 
 ```json
-{"chonkos":true,"apt_sources":true,"keyring":true,"zram_active":true,"root_used_percent":42,"disk_warning":false,"failed_units":""}
+{"chonkos":true,"chonkos-system":"ok","apt_sources":true,"keyring":true,"dpkg_parent_debian":true,"id_like_debian":true,"zram_active":true,"root_used_percent":42,"disk_warning":false,"failed_units":"","firewall_warning":null,"timestamp":"2026-01-01T12:00:00Z"}
 ```
 
 ### chonk update [--yes]
@@ -65,6 +66,55 @@ With `--json`:
 {"dry_run":true,"dev_directories":[{"path":"/home/user/proj/target","bytes":1073741824}]}
 ```
 
+### chonk profile <dev|battery|homelab|status>
+
+Changes require root and record the active profile atomically in `/var/lib/chonkos/profile`. `dev` restores normal TLP policy, suspends on lid close and turns the backlight on. `battery` selects TLP battery mode, suspends on lid close and suggests enabling the battery guard. `homelab` selects TLP AC mode, ignores lid close, and enables the guard when a battery is present. Add `--dark` to explicitly run `nap dark on` and switch off controllable backlights. It also reports LAN and Tailscale addresses. `status` shows the saved profile and checks the lid configuration, battery guard, CPU governors and ZRAM.
+
+```
+sudo chonk profile dev
+sudo chonk profile battery
+sudo chonk profile battery --dark
+sudo chonk profile homelab
+chonk profile status
+```
+
+With `--json`:
+
+```json
+{"profile":"battery","lid":"suspend","tlp_mode":"bat","guard_suggested":true,"lan":["192.168.1.10"],"tailscale":["100.64.0.2"],"dark":false}
+```
+
+### chonk card [--plain]
+
+Shows release and kernel versions, uptime, PSS across readable processes, ZRAM usage and compression, boot time or load average, available battery and thermal readings, wildcard and loopback listeners, and the latest seal. Use `--plain` to suppress the terminal illustration and colors.
+
+```
+chonk card
+chonk card --plain
+chonk --json card
+```
+
+With `--json` (includes `schema_version: 1` and an RFC 3339 UTC timestamp):
+
+```json
+{"schema_version":1,"timestamp":"2026-01-01T12:00:00Z","version":"ChonkOS 0.4.0 (Debian 13 trixie)","kernel":"6.12.0","uptime_seconds":3600,"zram":{"original_bytes":1048576,"compressed_bytes":524288,"ratio":2.0},"listeners":{"wildcard":["0.0.0.0:22"],"loopback":["127.0.0.1:631"]},"latest_seal":{"id":"20260101-110000-before-upgrade","message":"before upgrade"}}
+```
+
+### chonk try [--label NAME] -- COMMAND [ARG...]
+
+Creates a seal, runs the command synchronously, shows the changes and prints the restore preview command. The seal store must be writable by the invoking user. In JSON mode, child output goes to stderr and stdout carries the JSON result.
+
+```
+sudo chonk try --label "upgrade" -- apt-get upgrade
+chonk --json try --label "tune" -- sysctl -w vm.swappiness=10
+```
+
+With `--json`:
+
+```json
+{"seal_id":"20260101-120000-upgrade","exit_code":0,"changed":["/etc/sysctl.d/90-chonkos.conf"],"restore_preview":"sudo seal restore 20260101-120000-upgrade /etc/sysctl.d/90-chonkos.conf"}
+```
+
 ### chonk docs [tool]
 
 Prints the bundled tools documentation. Supply `chonk`, `scale`, `nap`, `whisker`, or `seal` to select one section. Unknown names exit with code `1`.
@@ -74,6 +124,13 @@ chonk docs
 chonk docs scale
 ```
 
+### Shell completions
+
+The package installs Bash, Zsh, and Fish completions for all five tools. To generate copies for custom locations, run from the `tools/` workspace:
+
+```sh
+cargo run -p xtask -- completions --out target/completions
+```
 ## scale
 
 Resource and size inspection. Prints a sorted table (largest first, limited to `--top` rows).
@@ -165,6 +222,48 @@ sudo nap lid ignore
 sudo nap lid sleep
 ```
 
+### nap guard enable [--limit 60|80] | disable | status
+
+Sets a hardware battery charge limit and persists it in a TLP drop-in. The default is 60% (`--limit 80` is also accepted).
+
+Two hardware interfaces are supported:
+
+- IdeaPad/Legion (`ideapad_acpi` driver): a binary `conservation_mode` switch; enabling it applies the factory limit, so both `--limit 60` and `--limit 80` map to the same conservation mode.
+- ThinkPad and others (`power_supply` class): `charge_control_end_threshold` (and `charge_control_start_threshold`) are set to the requested limit.
+
+`status` reports the detected interface, its current settings, the TLP drop-in and the maximum thermal-zone temperature. Changes require root.
+
+```
+sudo nap guard enable
+sudo nap guard enable --limit 80
+sudo nap guard disable
+nap guard status
+nap --json guard status
+```
+
+With `--json`:
+
+```json
+{"driver":"thinkpad_acpi","limit":80,"start_threshold":75,"end_threshold":80,"tlp_dropin":"/etc/tlp.d/95-chonkos-guard.conf","max_thermal_celsius":48}
+```
+
+### nap dark on | off | status
+
+`on` switches off panel backlights, requests TTY blanking after one minute and disables Wi-Fi power saving where the available interfaces support it. It also reports the before/after battery power readings when available. `off` restores the backlights and removes the NetworkManager drop-in. `status` shows the current panel, console and drop-in state. Changes require root.
+
+```
+sudo nap dark on
+sudo nap dark off
+nap dark status
+nap --json dark status
+```
+
+With `--json`:
+
+```json
+{"panel":"off","console_blank_minutes":1,"wifi_powersave":"off","watts_before":12.4,"watts_after":9.1}
+```
+
 ## whisker
 
 Socket, network and port inspection.
@@ -193,9 +292,10 @@ whisker kill 8080 --yes
 whisker kill 22 --force --yes
 ```
 
-### whisker net
+### whisker net [HOST]
 
 Reports active interfaces with their addresses (via `ip -j addr show up`, falling back to `/sys/class/net`), the default gateway (from `/proc/net/route`), DNS nameservers (`/etc/resolv.conf`), the Tailscale backend state, and TCP connect latency in milliseconds to `1.1.1.1:53`.
+Supply a hostname to test DNS resolution. For failed `.local` lookups, `net` and `watch` report static musl's NSS/mDNS limitation and suggest an IP address or the `systemd-resolved` stub at `127.0.0.53`.
 
 ```
 whisker net
@@ -247,6 +347,8 @@ Compares the current system with the given snapshot (default: the latest; exits 
 
 Restores a single tracked absolute path from a snapshot. TARGET_PATH must be inside the tracked set and present in the snapshot's manifest. An existing target file is first copied to `<name>.bak.<timestamp>` next to it; the restored content is checksum-verified against the manifest. `--dry-run` verifies the checksum without touching the target. Prints `{"target","backup","dry_run"}` with `--json`. Exits `1` on forbidden paths, checksum mismatch, or a changed target.
 
+`seal restore ID --dry-run` validates every saved file and lists the targets in the snapshot.
+
 ```
 sudo seal restore 20250101-120000-before-upgrade /etc/fstab --dry-run
 sudo seal restore 20250101-120000-before-upgrade /etc/fstab
@@ -263,6 +365,6 @@ seal export /root/chonkos-profile.json
 
 ## Security notes
 
-- `nap lid sleep|ignore` never restarts or kills `systemd-logind`; it only reloads it (`systemctl reload systemd-logind`) and warns if the reload fails.
+- `nap lid sleep|ignore` and `chonk profile` never restart or kill `systemd-logind`; they only reload it (`systemctl reload systemd-logind`) and warn if the reload fails.
 - `whisker kill` refuses to signal PID 1, PID 0 and itself, and refuses to signal OpenSSH server processes.
 - `seal` excludes traversal paths, symlinks, hard-linked files on Linux, common private-key filenames, and recognized private-key headers, and `seal restore` creates `<name>.bak.<timestamp>` backups instead of overwriting in place.

@@ -1,49 +1,10 @@
 use anyhow::{ensure, Result};
-use chonk_lib::{bytes, output, size};
-use clap::{Parser, Subcommand};
+use chonk_lib::{bytes, metrics, output, size};
+use clap::Parser;
 use serde_json::json;
-use std::{collections::HashSet, fs, path::PathBuf};
-#[derive(Parser)]
-struct Cli {
-    #[arg(long, global = true)]
-    json: bool,
-    #[command(subcommand)]
-    command: Cmd,
-}
-#[derive(Subcommand)]
-enum Cmd {
-    Ram {
-        #[arg(long, default_value_t = 10)]
-        top: usize,
-    },
-    Boot {
-        #[arg(long, default_value_t = 10)]
-        top: usize,
-    },
-    Pkg {
-        #[arg(long, default_value_t = 15)]
-        top: usize,
-    },
-    Dir {
-        #[arg(default_value = ".")]
-        path: PathBuf,
-        #[arg(long, default_value_t = 15)]
-        top: usize,
-    },
-}
-fn pss(s: &str) -> Option<u64> {
-    s.lines()
-        .find_map(|l| l.strip_prefix("Pss:"))?
-        .split_whitespace()
-        .next()?
-        .parse::<u64>()
-        .ok()?
-        .checked_mul(1024)
-}
-fn zram(s: &str) -> Option<(u64, u64, u64)> {
-    let mut it = s.split_whitespace().map(str::parse);
-    Some((it.next()?.ok()?, it.next()?.ok()?, it.next()?.ok()?))
-}
+use std::{collections::HashSet, fs};
+mod cli;
+use cli::{Cli, Cmd};
 fn pkg(s: &str) -> Option<(u64, &str)> {
     let (n, name) = s.split_once('\t')?;
     Some((n.parse::<u64>().ok()?.checked_mul(1024)?, name))
@@ -53,7 +14,7 @@ fn duration(s: &str) -> Option<u64> {
         ("min", 60000.),
         ("ms", 1.),
         ("us", 0.001),
-        ("µs", 0.001),
+        ("Ă‚Âµs", 0.001),
         ("s", 1000.),
         ("h", 3600000.),
     ] {
@@ -70,26 +31,19 @@ fn main() -> Result<()> {
     let mut timed = false;
     let top = match cli.command {
         Cmd::Ram { top } => {
-            for e in fs::read_dir("/proc")?.flatten() {
-                if e.file_name().to_string_lossy().parse::<u32>().is_err() {
-                    continue;
-                }
-                let p = e.path();
-                if let (Some(n), Ok(name)) = (
-                    fs::read_to_string(p.join("smaps_rollup"))
-                        .ok()
-                        .and_then(|s| pss(&s)),
-                    fs::read_to_string(p.join("comm")),
-                ) {
+            for (p, n) in metrics::processes() {
+                if let Ok(name) = fs::read_to_string(p.join("comm")) {
                     rows.push((
                         n,
-                        format!("{} {}", e.file_name().to_string_lossy(), name.trim_end()),
+                        format!(
+                            "{} {}",
+                            p.file_name().unwrap_or_default().to_string_lossy(),
+                            name.trim_end()
+                        ),
                     ))
                 }
             }
-            if let Ok(s) = fs::read_to_string("/sys/block/zram0/mm_stat") {
-                memory = zram(&s)
-            }
+            memory = metrics::zram_stats();
             top
         }
         Cmd::Pkg { top } => {
@@ -167,8 +121,8 @@ mod tests {
     use super::*;
     #[test]
     fn parsers() {
-        assert_eq!(pss("Rss: 12 kB\nPss: 7 kB"), Some(7168));
-        assert_eq!(zram("100 50 60 0"), Some((100, 50, 60)));
+        assert_eq!(metrics::pss("Rss: 12 kB\nPss: 7 kB"), Some(7168));
+        assert_eq!(metrics::zram("100 50 60 0"), Some((100, 50, 60)));
         assert_eq!(pkg("42\tpkg"), Some((43008, "pkg")));
     }
 }

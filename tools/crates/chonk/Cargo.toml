@@ -1,6 +1,6 @@
 [package]
 name = "chonk"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 
 [dependencies]
@@ -12,3 +12,7 @@ chonk-lib = { path = "../chonk-lib" }
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.4.8"
 libc = "0.2"
+
+[dev-dependencies]
+time = { version = "0.3", features = ["parsing"] }
+tempfile.workspace = true

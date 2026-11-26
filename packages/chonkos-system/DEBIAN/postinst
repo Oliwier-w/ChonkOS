@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+    [ -d /run/systemd/system ] || exit 0
+    [ "$(cat /proc/1/comm 2>/dev/null)" = systemd ] || exit 0
+    host_root=$(stat -Lc '%d:%i' /proc/1/root 2>/dev/null) || exit 0
+    [ "$host_root" = "$(stat -Lc '%d:%i' /)" ] || exit 0
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    sysctl --system >/dev/null 2>&1 || true
+    deb-systemd-helper enable tlp.service >/dev/null 2>&1 || true
+    if ! deb-systemd-invoke restart zramswap.service >/dev/null 2>&1; then
+        echo "chonkos-system: warning: could not restart zramswap.service" >&2
+    fi
+    if ! deb-systemd-invoke start tlp.service >/dev/null 2>&1; then
+        echo "chonkos-system: warning: could not start tlp.service" >&2
+    fi
+fi
