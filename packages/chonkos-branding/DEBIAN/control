@@ -1,0 +1,9 @@
+Package: chonkos-branding
+Version: 0.1.0
+Section: misc
+Priority: optional
+Architecture: all
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Depends: fastfetch
+Description: ChonkOS branding and fastfetch config
+ Sets ChonkOS os-release info and installs the Chonky fastfetch logo.

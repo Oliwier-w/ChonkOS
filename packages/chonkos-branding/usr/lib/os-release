@@ -1,0 +1,9 @@
+PRETTY_NAME="ChonkOS 0.1"
+NAME="ChonkOS"
+VERSION_ID="0.1"
+VERSION="0.1"
+VERSION_CODENAME=trixie
+ID=chonkos
+ID_LIKE=debian
+HOME_URL="https://github.com/Oliwier-w/chonkos"
+ANSI_COLOR="38;5;117"

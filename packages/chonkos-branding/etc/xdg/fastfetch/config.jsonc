@@ -1,0 +1,33 @@
+{
+  "logo": {
+    "type": "file-raw",
+    "source": "/usr/share/chonkos/chonky.txt",
+    "padding": {
+      "top": 1,
+      "left": 2,
+      "right": 3
+    }
+  },
+  "display": {
+    "separator": " -> "
+  },
+  "modules": [
+    "title",
+    "break",
+    { "type": "os", "key": "os" },
+    { "type": "kernel", "key": "kernel" },
+    { "type": "uptime", "key": "uptime" },
+    "break",
+    { "type": "cpu", "key": "cpu" },
+    { "type": "gpu", "key": "gpu" },
+    { "type": "memory", "key": "memory" },
+    { "type": "swap", "key": "swap" },
+    { "type": "disk", "key": "disk" },
+    "break",
+    { "type": "shell", "key": "shell" },
+    { "type": "terminal", "key": "term" },
+    { "type": "packages", "key": "pkgs" },
+    "break",
+    { "type": "colors", "symbol": "block" }
+  ]
+}

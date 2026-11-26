@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+if [ "$1" = "remove" ]; then
+    dpkg-divert --package chonkos-branding --remove --rename \
+        --divert /usr/lib/os-release.debian /usr/lib/os-release
+fi
