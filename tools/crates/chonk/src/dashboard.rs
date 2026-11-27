@@ -7,7 +7,11 @@ use serde_json::{json, Value};
 use std::{path::Path, process::Command};
 
 fn query(cmd: &str, args: &[&str], drift: bool) -> Option<Value> {
-    let out = Command::new(cmd).args(args).output().ok()?;
+    let out = Command::new("timeout")
+        .args(["--kill-after=1s", "2s", cmd])
+        .args(args)
+        .output()
+        .ok()?;
     if out.status.success() || (drift && out.status.code() == Some(2)) {
         serde_json::from_slice(&out.stdout).ok()
     } else {

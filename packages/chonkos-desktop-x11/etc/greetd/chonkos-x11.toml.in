@@ -2,8 +2,9 @@
 # This file is never installed as /etc/greetd/config.toml (owned by the
 # greetd package); the greetd.service drop-in points greetd here instead.
 
+[terminal]
 vt = 7
-user = "_greetd"
 
 [default_session]
+user = "_greetd"
 command = "tuigreet --time --remember --remember-session --asterisks --greeting 'ChonkOS {{VERSION}}' --cmd /usr/libexec/chonkos/i3-session"

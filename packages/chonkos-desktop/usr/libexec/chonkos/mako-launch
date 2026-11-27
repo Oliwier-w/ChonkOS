@@ -5,8 +5,9 @@
 set -e
 
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
-runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
-cfg=$runtime_dir/chonkos-mako.conf
+runtime_dir=${XDG_RUNTIME_DIR:?A private session runtime directory is required}
+cfg=$(mktemp "$runtime_dir/chonkos-mako.XXXXXX")
+trap 'rm -f -- "$cfg"' 0
 
 {
     if [ -f /usr/share/chonkos/mako/config ]; then
@@ -20,4 +21,4 @@ cfg=$runtime_dir/chonkos-mako.conf
     fi
 } > "$cfg"
 
-exec mako --config "$cfg"
+mako --config "$cfg"

@@ -1,7 +1,7 @@
 [Unit]
 Description=ChonkOS Homelab Status Dashboard on %I
 After=systemd-user-sessions.service network-online.target
-Conflicts=getty@%i.service
+Conflicts=getty@%i.service greetd.service
 
 [Service]
 Type=simple
@@ -14,3 +14,6 @@ TTYReset=yes
 TTYVHangup=yes
 Restart=always
 RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

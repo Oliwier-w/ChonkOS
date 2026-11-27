@@ -6,7 +6,7 @@
 set -e
 
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
-runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
+runtime_dir=${XDG_RUNTIME_DIR:?A private session runtime directory is required}
 generated_dir=$config_home/chonkos/generated
 override_dir=$config_home/chonkos/overrides/sway
 
@@ -39,7 +39,8 @@ if [ -r /proc/driver/nvidia/version ]; then
     fi
 fi
 
-cfg=$runtime_dir/chonkos-sway.conf
+cfg=$(mktemp "$runtime_dir/chonkos-sway.XXXXXX")
+trap 'rm -f -- "$cfg"' 0
 {
     # Color palette: generated tokens win, the shipped palette is the fallback.
     if [ -f "$generated_dir/sway-colors.conf" ]; then
@@ -70,6 +71,7 @@ cfg=$runtime_dir/chonkos-sway.conf
 } > "$cfg"
 
 if [ -n "${nvidia_experimental:-}" ]; then
-    exec sway --unsupported-gpu -c "$cfg"
+    sway --unsupported-gpu -c "$cfg"
+    exit 0
 fi
-exec sway -c "$cfg"
+sway -c "$cfg"

@@ -62,7 +62,14 @@ fn power(root_dir: &Path) -> Result<(bool, Vec<Value>)> {
                 batteries.push(battery(get));
             }
         } else {
-            ac_online |= get("online").as_deref() == Some("1");
+            if path.join("online").exists()
+                || matches!(
+                    get("type").as_deref(),
+                    Some("Mains" | "USB" | "USB_C" | "USB_PD")
+                )
+            {
+                ac_online |= get("online").as_deref() != Some("0");
+            }
         }
     }
     Ok((ac_online, batteries))
@@ -156,6 +163,17 @@ fn run_with(
         if let Err(error) = execute(step[0], &step[1..]) {
             warnings.push(format!("{}: {error:#}", step.join(" ")));
         }
+    }
+    let (online, batteries) = power(root_dir)?;
+    if online
+        || !batteries.iter().any(|b| {
+            b["status"] == "Discharging"
+                && b["percent"]
+                    .as_f64()
+                    .is_some_and(|p| (0.0..=f64::from(config.threshold_percent)).contains(&p))
+        })
+    {
+        return Ok(json!({"status":"shutdown_cancelled","warnings":warnings}));
     }
     if let Err(error) = execute("systemctl", &["poweroff"]) {
         for warning in &warnings {

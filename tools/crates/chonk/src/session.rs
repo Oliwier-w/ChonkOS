@@ -41,6 +41,42 @@ fn themes(c: &Config) -> [(&'static str, String); 8] {
     ]
 }
 
+#[cfg(target_os = "linux")]
+fn open_generated(dir: &Path) -> Result<fs::File> {
+    use std::os::fd::AsRawFd;
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    use std::path::Component;
+    ensure!(dir.is_absolute(), "Expected an absolute configuration path");
+    let privileged = chonk_lib::root();
+    let mut parent = fs::File::open("/")?;
+    for component in dir.components() {
+        if component == Component::RootDir {
+            continue;
+        }
+        let Component::Normal(name) = component else {
+            anyhow::bail!("Invalid configuration path")
+        };
+        let path = PathBuf::from(format!("/proc/self/fd/{}", parent.as_raw_fd())).join(name);
+        match fs::create_dir(&path) {
+            Ok(()) => (),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => (),
+            Err(e) => return Err(e.into()),
+        }
+        parent = fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW)
+            .open(path)?;
+        let metadata = parent.metadata()?;
+        ensure!(
+            !privileged
+                || (metadata.uid() == 0
+                    && (metadata.mode() & 0o022 == 0 || metadata.mode() & 0o1000 != 0)),
+            "Run chonk apply as the owner of this configuration directory"
+        );
+    }
+    Ok(parent)
+}
+
 pub fn apply(path: Option<&Path>, dry: bool) -> Result<Value> {
     let files = themes(&load(path)?);
     let base = base()?;
@@ -52,11 +88,23 @@ pub fn apply(path: Option<&Path>, dry: bool) -> Result<Value> {
             Err(e) => return Err(e.into()),
         }
     }
+    #[cfg(target_os = "linux")]
+    let pinned = (!dry).then(|| open_generated(&dir)).transpose()?;
+    #[cfg(target_os = "linux")]
+    let destination = {
+        use std::os::fd::AsRawFd;
+        pinned.as_ref().map_or_else(
+            || dir.clone(),
+            |fd| PathBuf::from(format!("/proc/self/fd/{}", fd.as_raw_fd())),
+        )
+    };
+    #[cfg(not(target_os = "linux"))]
+    let destination = dir.clone();
     let mut changed = Vec::new();
     for (name, contents) in &files {
-        let path = dir.join(name);
+        let path = destination.join(name);
         if path.is_symlink() || fs::read(&path).ok().as_deref() != Some(contents.as_bytes()) {
-            changed.push(path);
+            changed.push(dir.join(name));
         }
     }
     let mut warnings = Vec::new();
@@ -67,7 +115,7 @@ pub fn apply(path: Option<&Path>, dry: bool) -> Result<Value> {
         for (name, data) in files {
             let path = dir.join(name);
             if changed.contains(&path) {
-                write_public_config(&path, &data)?;
+                write_public_config(&destination.join(name), &data)?;
             }
         }
         reload(&mut warnings);
@@ -120,6 +168,31 @@ pub fn mode(name: &str, dark: bool, dry: bool) -> Result<Value> {
         );
     }
     ensure!(dry || chonk_lib::root(), "Run with sudo");
+    // The login session may disappear while systemd switches the active console.
+    if !dry && env::var_os("CHONKOS_MODE_WORKER").is_none() {
+        let mut worker = std::process::Command::new("systemd-run");
+        worker.args([
+            "--wait",
+            "--collect",
+            "--quiet",
+            "--unit=chonkos-mode-switch",
+            "--setenv=CHONKOS_MODE_WORKER=1",
+        ]);
+        for key in ["HOME", "XDG_CONFIG_HOME"] {
+            if env::var_os(key).is_some() {
+                worker.arg(format!("--setenv={key}"));
+            }
+        }
+        worker.arg(env::current_exe()?).args(["mode", name]);
+        if dark {
+            worker.arg("--dark");
+        }
+        ensure!(
+            worker.status()?.success(),
+            "Mode switch failed; inspect journalctl -u chonkos-mode-switch"
+        );
+        return Ok(json!({"mode":name,"dry_run":false}));
+    }
     let c = load(None)?;
     let threshold = c.dive_shutdown_percent.to_string();
     let mut steps = Vec::new();
@@ -140,11 +213,8 @@ pub fn mode(name: &str, dark: bool, dry: bool) -> Result<Value> {
         if dark {
             steps.push(vec!["nap", "dark", "on"]);
         }
-        steps.push(vec!["systemctl", "disable", "--now", "greetd.service"]);
+        steps.push(vec!["systemctl", "disable", "greetd.service"]);
         steps.push(vec!["systemctl", "enable", "--now", dash]);
-        if !dry {
-            write_public_config(state, "homelab\n")?;
-        }
     } else {
         ensure!(
             ["/usr/sbin/greetd", "/usr/bin/greetd"]
@@ -153,7 +223,7 @@ pub fn mode(name: &str, dark: bool, dry: bool) -> Result<Value> {
             "Install greetd with sudo apt install chonkos-desktop"
         );
         steps.extend([
-            vec!["systemctl", "disable", "--now", dash],
+            vec!["systemctl", "disable", dash],
             vec!["nap", "dark", "off"],
             vec!["nap", "lid", "sleep"],
             vec!["systemctl", "set-default", "graphical.target"],
@@ -167,9 +237,7 @@ pub fn mode(name: &str, dark: bool, dry: bool) -> Result<Value> {
                 result?;
             }
         }
-        if name == "desktop" {
-            write_public_config(state, "desktop\n")?;
-        }
+        write_public_config(state, &format!("{name}\n"))?;
     }
     Ok(json!({"mode":name,"dry_run":dry,"steps":steps}))
 }

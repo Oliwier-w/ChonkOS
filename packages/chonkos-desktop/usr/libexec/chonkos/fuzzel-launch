@@ -5,8 +5,9 @@
 set -e
 
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
-runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
-cfg=$runtime_dir/chonkos-fuzzel.ini
+runtime_dir=${XDG_RUNTIME_DIR:?A private session runtime directory is required}
+cfg=$(mktemp "$runtime_dir/chonkos-fuzzel.XXXXXX")
+trap 'rm -f -- "$cfg"' 0
 
 {
     if [ -f /usr/share/chonkos/fuzzel/fuzzel.ini ]; then
@@ -20,4 +21,4 @@ cfg=$runtime_dir/chonkos-fuzzel.ini
     fi
 } > "$cfg"
 
-exec fuzzel --config "$cfg" "$@"
+fuzzel --config "$cfg" "$@"

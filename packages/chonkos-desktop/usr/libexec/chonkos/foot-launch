@@ -5,8 +5,9 @@
 set -e
 
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
-runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
-cfg=$runtime_dir/chonkos-foot.ini
+runtime_dir=${XDG_RUNTIME_DIR:?A private session runtime directory is required}
+cfg=$(mktemp "$runtime_dir/chonkos-foot.XXXXXX")
+trap 'rm -f -- "$cfg"' 0
 
 {
     if [ -f /usr/share/chonkos/foot/foot.ini ]; then
@@ -20,4 +21,4 @@ cfg=$runtime_dir/chonkos-foot.ini
     fi
 } > "$cfg"
 
-exec foot --config "$cfg" "$@"
+foot --config "$cfg" "$@"
