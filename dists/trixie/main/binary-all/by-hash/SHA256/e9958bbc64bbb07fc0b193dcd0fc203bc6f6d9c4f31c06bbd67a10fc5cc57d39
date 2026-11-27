@@ -1,0 +1,211 @@
+Package: chonkos-archive-keyring
+Architecture: all
+Version: 0.4.0
+Priority: optional
+Section: misc
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 10
+Filename: pool/main/chonkos-archive-keyring_0.4.0_all.deb
+Size: 2042
+MD5sum: 8dc520167def5f1c6adf8bd0730f6349
+SHA1: cb96ad42b3e4ca75b4dc4e461b2bb01305f0ccc0
+SHA256: 2bcc60b352ef09c2205a310240d1faf6aa9d26f80488a4483b40238145809090
+SHA512: 60f4f522de76ec06f95d9fb964cbae3d24419dc5e9f3bb96932921ed40d6d5b3d883d352752c98179b2f9d91e5639e682438f9f019f12912f3545b61b957c9cb
+Description: ChonkOS APT archive signing keyring and repository source
+ Installs the ChonkOS archive signing key and the DEB822 repository source.
+
+Package: chonkos-archive-keyring
+Architecture: all
+Version: 0.5.0
+Priority: optional
+Section: misc
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 10
+Filename: pool/main/chonkos-archive-keyring_0.5.0_all.deb
+Size: 2152
+MD5sum: 73266bc106be6423dcc7426d19c8b368
+SHA1: 1e02bad8ad704b1a2258a7c9f785da7ceb413cec
+SHA256: 09602d4d9e6bf7f16b20172a7ccad47220e49a1034180d1211ce4ca9a289eede
+SHA512: d6a4c15e6e3f9598a218186b3ccb2b7f54262e9861ad1075b72c7847a59ba63c3f64569b987f3894f0c5438ec511ff1c3fed3290335612a64b8521c0ad857bb6
+Description: ChonkOS APT archive signing keyring and repository source
+ Installs the ChonkOS archive signing key and the DEB822 repository source.
+
+Package: chonkos-branding
+Architecture: all
+Version: 0.4.0
+Priority: optional
+Section: misc
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 35
+Depends: fastfetch
+Filename: pool/main/chonkos-branding_0.4.0_all.deb
+Size: 4888
+MD5sum: eb82fb07bb85045a50fcd7411dc72471
+SHA1: ff8bb7dfc7c8af7ec55c35c09b5713f5d193f2f0
+SHA256: c1a6df87a793885ec2a471ea0f1c9480ecf20b528a67819d6adff525a0b07567
+SHA512: 8cf63fecfd4073b1a50160d2c2b639f5486a0f61e481edbfbcf66be7ce0876d61b4525edce19b4e92c6a2a01eedc3bd07919ee28c5c6ca237f3ad454f9c55eee
+Description: ChonkOS branding and fastfetch config
+ Sets ChonkOS os-release info and installs the Chonky fastfetch logo.
+
+Package: chonkos-branding
+Architecture: all
+Version: 0.5.0
+Priority: optional
+Section: misc
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 35
+Depends: fastfetch
+Filename: pool/main/chonkos-branding_0.5.0_all.deb
+Size: 4948
+MD5sum: 344369c2d1dced6d717f9f3c2c290974
+SHA1: 913f4a1385c9bf6d6c0d3d715eb83479b6ed6c8d
+SHA256: 190f5e1812feccb0cfb4b7f7cb47f4adb888995301ed57b5d8e54c8b1e0b8e00
+SHA512: 35831f8acfabb6633f2cb6524e56e2eba2f443ffc6a1294c25d26f612c16f18f12b6605e15fa3cd915ead73cc95b17edbbd73efc9a7f3c0ffd54979dbf506d44
+Description: ChonkOS branding and fastfetch config
+ Sets ChonkOS os-release info and installs the Chonky fastfetch logo.
+
+Package: chonkos-core
+Architecture: all
+Version: 0.4.0
+Priority: optional
+Section: metapackages
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 8
+Depends: chonkos-branding, chonkos-tools, chonkos-system, chonkos-shell, chonkos-archive-keyring, git, curl, ca-certificates, gnupg, fastfetch, ripgrep, fd-find, fzf, tmux, btop
+Filename: pool/main/chonkos-core_0.4.0_all.deb
+Size: 1784
+MD5sum: f38c1d2e78b2808fec52792ccee8ddee
+SHA1: dd66a2caf64664b66bdd8667fe85712fb3990cc9
+SHA256: f985486d16875eb1096369ddae7a8a0bf1bd0109a216233bf00f301189511056
+SHA512: 1a334cc4ff58616f20598a4bad89868641966ea7369eb579d06a13754285da1ed47af61d6a940a125197790e120a7e16fa2b23f2c3cabef1d891dc4088feda0e
+Description: Base CLI packages for ChonkOS
+ Metapackage pulling core terminal tools, system defaults, shell config, and ChonkOS branding.
+
+Package: chonkos-core
+Architecture: all
+Version: 0.5.0
+Priority: optional
+Section: metapackages
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 8
+Depends: chonkos-branding, chonkos-tools, chonkos-system, chonkos-shell, chonkos-archive-keyring, curl, ca-certificates, gnupg, fastfetch, ripgrep, fd-find, fzf, tmux, btop
+Suggests: git
+Filename: pool/main/chonkos-core_0.5.0_all.deb
+Size: 1928
+MD5sum: b5f75ef3a4f7048421a07f8a4511c300
+SHA1: bacfcc23fb13e4e0c71e1fb9db3a961f71b1b42c
+SHA256: 7893fadeab830b404cd9c2a5c0ada1d9355e09f5018e1b4fad214549a29a4d4c
+SHA512: 1ebcdbdd1399b27c7b2ff7cc68d40fb9db6f0fa167f8df6f9177c4eb3fe7371c4e3a69c62883cea4cbae77b14cb62d2986a5b39f36aa18dc6205161163ec5911
+Description: Base CLI packages for ChonkOS
+ Metapackage pulling core terminal tools, system defaults, shell config, and ChonkOS branding.
+
+Package: chonkos-desktop-x11
+Architecture: all
+Version: 0.5.0
+Priority: optional
+Section: x11
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 31
+Depends: chonkos-core (= 0.5.0), i3-wm, dunst, xserver-xorg-core, xserver-xorg-input-libinput, libgl1-mesa-dri, xinit, xterm | x-terminal-emulator, rofi, xclip, scrot, brightnessctl, pipewire-audio, greetd, tuigreet, fonts-jetbrains-mono
+Conflicts: chonkos-desktop
+Filename: pool/main/chonkos-desktop-x11_0.5.0_all.deb
+Size: 4716
+MD5sum: cd0f29ec70f32e4837f50211d7ce3916
+SHA1: b1ca99b8ae2411c896172e39ab14224b450fcb46
+SHA256: 8a6508d57961d2e0e27f76835953e1a9176212e034f7d4a8630676c3d7612a99
+SHA512: fb20e8f2b406eec926816997ec1377a5dd9e5620a7238d59b8c39af293a1411871fdaaa76a7531cfd98e1bb6adb31a13a9b60a74425401226a17e1cf9155a7bf
+Description: ChonkOS X11 fallback desktop (i3 + Dunst) for legacy NVIDIA GPUs
+ Flat Arctic i3 session with Dunst notifications and Rofi launcher for
+ systems where the Wayland session cannot run (NVIDIA driver series 550
+ and older), started by tuigreet via greetd.
+
+Package: chonkos-desktop
+Architecture: all
+Version: 0.5.0
+Priority: optional
+Section: x11
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 49
+Depends: chonkos-core (= 0.5.0), sway, swaybg, swaylock, swayidle, kanshi, wlr-randr, waybar, foot, fuzzel, mako-notifier, grim, slurp, wl-clipboard, brightnessctl, xdg-desktop-portal-wlr, pipewire-audio, greetd, tuigreet, fonts-jetbrains-mono
+Conflicts: chonkos-desktop-x11
+Filename: pool/main/chonkos-desktop_0.5.0_all.deb
+Size: 8088
+MD5sum: d2c84c008288e64345734d247c2becda
+SHA1: 1442e4ce7bdfd0292c365c00743fa85b22854c31
+SHA256: e04e2775521107be6bb2662cc3a92628426ed1e6893e621eae9b202d0375f32e
+SHA512: 111ce3838f556d4836b416c232039ce27b27660451f4adf374f8bc2306d7da2eb2b31606ecd88f4c90468af7a4ae7a1e976d9f0b70e441b6ec64ee4458cd6035
+Description: ChonkOS Arctic Wayland desktop environment (Sway + Waybar + Foot)
+ Flat slate-blue and cyan Wayland desktop assembled from segmented
+ configuration layers: Sway compositor, Waybar status bar, Foot terminal,
+ Fuzzel launcher and Mako notifications, with tuigreet as the greeter.
+
+Package: chonkos-shell
+Architecture: all
+Version: 0.4.0
+Priority: optional
+Section: shells
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 14
+Depends: bash-completion, tmux, fzf, ripgrep, fd-find
+Filename: pool/main/chonkos-shell_0.4.0_all.deb
+Size: 2852
+MD5sum: 61388c3ea8631b42e0a8905b70165958
+SHA1: 97e6d772a1a98cefe35fb8935766855196f3be5c
+SHA256: 369fdd577c8f333bbcf8f185e6d0ed7c2b1e1c0df3997578bf193d85e95ab993
+SHA512: cdddd18d546ea4402cb8c52db8f219b00bf4a94d99652bc90b9f7639d5d5289d05896c2cf072347d26b7b0e526abe9c8251d00843606c87905a56bb45f0d34c6
+Description: Minimalist shell configuration and MOTD for ChonkOS
+ Provides Bash defaults, tmux settings and a local login summary.
+
+Package: chonkos-shell
+Architecture: all
+Version: 0.5.0
+Priority: optional
+Section: shells
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 14
+Depends: bash-completion, tmux, fzf, ripgrep, fd-find
+Filename: pool/main/chonkos-shell_0.5.0_all.deb
+Size: 3024
+MD5sum: c2ca15c176c16e455e74c1ec818606bf
+SHA1: bb311b774694834e74a72ed4af40c424ca57c394
+SHA256: db03fd6500269dc84d08a675638e5a852aa3c54a757a3dee1a022e08cd4e1916
+SHA512: bf738b53e76ecff615c0c459a6f3e75dde42948d5b7c3962fd6f42267ecb0ecf54ea124f5a24db7f2ab81c737c4733d9c70771396c7ec815b336905a856489f8
+Description: Minimalist shell configuration and MOTD for ChonkOS
+ Provides Bash defaults, tmux settings and a local login summary.
+
+Package: chonkos-system
+Architecture: all
+Version: 0.4.0
+Priority: optional
+Section: admin
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 20
+Depends: zram-tools, tlp
+Suggests: ufw
+Filename: pool/main/chonkos-system_0.4.0_all.deb
+Size: 2568
+MD5sum: fdb3572331d41eb304367a8050d705bc
+SHA1: cab3393d4a60329e0ff3d7f3df1ecf62c811cb1b
+SHA256: 31a33c9ec4ecccac0068352ff8c2e80f7e5e78bdc59829097ebc71eb392a59ba
+SHA512: c6223eb6d63e4b3a847a04338abb9b77c4cc56df1848870719e3d217c2b0a3c978a76a09d917acafec797a5136ad479a3e8c0e76ccf2519f6122ef01e7fc1657
+Description: System tuning and hardware defaults for ChonkOS
+ Configures compressed swap, kernel parameters and laptop power management.
+
+Package: chonkos-system
+Architecture: all
+Version: 0.5.0
+Priority: optional
+Section: admin
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 32
+Depends: zram-tools, tlp
+Suggests: ufw
+Filename: pool/main/chonkos-system_0.5.0_all.deb
+Size: 4136
+MD5sum: 28d034c5378c8ff16df7ed7c5f237589
+SHA1: 584c17cd1c816035a9b20cc1a741f146f084aa2a
+SHA256: 76762d72ddbfbec64e66884b4afade3e055518c6b04e03134611dea9a78d0e09
+SHA512: 132b4069d4e72149fd8f97112d1c9d2c174a19b1b4a5bce272d0fd959177c731e4a2a958ca0f1c7f9534302999988daeebc9ad8171d7138aa6357d4a35a92a6f
+Description: System tuning and hardware defaults for ChonkOS
+ Configures compressed swap, kernel parameters and laptop power management.
+

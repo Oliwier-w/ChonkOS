@@ -1,25 +1,51 @@
 {
   "binaries": {
     "chonk": {
-      "sha256": "b636ac9d32691b9fff679dc3d6ff8ad58f4dd22ef75a982fdd70d6ce46dafa66",
-      "size_bytes": 918360
+      "sha256": "80b9f5d3619fedf855af175da46d3c8016bae9dc7dfb5eae32e9e2f1f3ddd7a0",
+      "size_bytes": 979800
     },
     "nap": {
-      "sha256": "16ef7e55cc34c2adb00937243815066d857415f55c1de62a64d137a2cef231ba",
-      "size_bytes": 811800
+      "sha256": "d89dbf927f35a0ff237175e9259ac5b2740134cde31189cb1863121d4f852490",
+      "size_bytes": 856888
     },
     "scale": {
-      "sha256": "f0c735b7edd0ff7ba85c14461af9b1806361280ffb45a2f8cd362f9a45412f72",
+      "sha256": "00aa45f5238f674c286a6e0318e2cddd90c5dfe1dde9c25d7b3fa7341886dd53",
       "size_bytes": 750392
     },
     "seal": {
-      "sha256": "8f8d4e7ead3bb7f49c188d5d76d78b3fecd553132a2d7283fe2b86fec64de5f2",
+      "sha256": "656edccf40b42832a2cd2c865ed4794f9ad5602d6aedef314646bf51d88cd1f6",
       "size_bytes": 844568
     },
     "whisker": {
-      "sha256": "75348a010114806ab6529f8761422e652ecb0cdeed4121f84ef87d33e9315b8d",
-      "size_bytes": 881576
+      "sha256": "02851011c1665c341f2ea68991eb5f46b4bbf307d4b178bea3d1b809e7d8d7e0",
+      "size_bytes": 992168
     }
   },
-  "version": "0.4.0"
+  "packages": {
+    "chonkos-archive-keyring": {
+      "installed_size_kib": 10
+    },
+    "chonkos-branding": {
+      "installed_size_kib": 35
+    },
+    "chonkos-core": {
+      "installed_size_kib": 8
+    },
+    "chonkos-desktop": {
+      "installed_size_kib": 49
+    },
+    "chonkos-desktop-x11": {
+      "installed_size_kib": 31
+    },
+    "chonkos-shell": {
+      "installed_size_kib": 14
+    },
+    "chonkos-system": {
+      "installed_size_kib": 32
+    },
+    "chonkos-tools": {
+      "installed_size_kib": 4522
+    }
+  },
+  "version": "0.5.0"
 }

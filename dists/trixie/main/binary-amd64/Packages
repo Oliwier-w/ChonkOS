@@ -14,3 +14,19 @@ SHA512: 4d108070e289e044f43d854682251bb39ec378395c86e45a3017311a8b7a0a686d687c34
 Description: Native Rust CLI toolkit for ChonkOS
  Minimal static system tools (chonk, scale, nap, whisker, seal), completions, and man pages.
 
+Package: chonkos-tools
+Architecture: amd64
+Version: 0.5.0
+Priority: optional
+Section: utils
+Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
+Installed-Size: 4522
+Filename: pool/main/chonkos-tools_0.5.0_amd64.deb
+Size: 857140
+MD5sum: 51f91d899969239dcb4fa58adeda2bbf
+SHA1: 2a714427b7d2d2f467e6b98c31fdb5db349eaf45
+SHA256: 28807a1147eddb8cba5cc843313001c20152a6ba4119002e28821bbb61ec50cd
+SHA512: 8d4539bc9a9f0b05f754a5f2ba1f0f02d8e5477e3a70fb7e1c8acdab41429919bc5d9252e4c07fd7c611ef3e0a97312778f4c0a2755eae851d7eae4b8642210b
+Description: Native Rust CLI toolkit for ChonkOS
+ Minimal static system tools (chonk, scale, nap, whisker, seal), completions, and man pages.
+

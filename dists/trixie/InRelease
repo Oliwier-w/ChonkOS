@@ -5,21 +5,21 @@ Acquire-By-Hash: yes
 Architectures: amd64 all
 Codename: trixie
 Components: main
-Date: Fri, 27 Nov 2026 09:52:20 +0000
+Date: Fri, 27 Nov 2026 13:30:24 +0000
 Label: ChonkOS
 Origin: ChonkOS
 Suite: trixie
 SHA256:
- f1c5ea6dbbd3532bd5e7dfc6b1a3cc6a158dbf2cad97c2b046fc56636bcdd940             3625 main/binary-all/Packages
- b7b5be91340083e663143f32a30b43d5cbc37d813036082ba48470b7b4c01aa2             1628 main/binary-all/Packages.gz
- 2503e74798a1816b0d73afefeafd472dd438c2a0181614c016fba9b4045e6950             1652 main/binary-all/Packages.xz
- 1aa77933c2e656ecee9850b3707b0818c77a0a9e0bdda1626053ebda29db976a              676 main/binary-amd64/Packages
- f9c9304b970a739f730e6961a66fb3f1599a9884ea55ae104652754d87578571              495 main/binary-amd64/Packages.gz
- 31b7baa319d05601f0179549b53241cf183d41a6e16d60f07619f4020c32a8f5              572 main/binary-amd64/Packages.xz
+ e9958bbc64bbb07fc0b193dcd0fc203bc6f6d9c4f31c06bbd67a10fc5cc57d39             9420 main/binary-all/Packages
+ e621293a22fdf1343fa85fcf16aadba5df8b524a2b7daed99e2f7196c8ddf2e8             3516 main/binary-all/Packages.gz
+ 13872da42ae480ca8da78a4d9d64011b5629c40cc9140551b4a0cc38e3ebb165             3348 main/binary-all/Packages.xz
+ f44a331726161b477086ca059ead6f991e8c46f109052847192eaf4f4c96b6e2             1352 main/binary-amd64/Packages
+ da2a3e1fcbd05131ea1fd724094da560422d4185de765f2993fe3d798399e569              695 main/binary-amd64/Packages.gz
+ 0b484ab01f5d8dacaf3c976b91173cb877adfcfcd80fb68277a8917dcb8b6c5a              752 main/binary-amd64/Packages.xz
 -----BEGIN PGP SIGNATURE-----
 
-iHUEARYIAB0WIQS323avxljg63nVj3QgNenAMvgetgUCawlS1AAKCRAgNenAMvge
-tr8BAP4qGDzd8yp5UeDuRMBKNnagIg2ZKHwVMoz4Xw2F7IhkJAEAjM2lAtTOYHMN
-gD8WGuStld1eoXH2q9nq4muWWTi5cQQ=
-=zAI8
+iHUEARYIAB0WIQS323avxljg63nVj3QgNenAMvgetgUCawmF8AAKCRAgNenAMvge
+tgOIAQCiFaX8UYf4QZOZ0vWtuUwaViRjpPdbWZ+gjRBKY0wXHgEAzRmoHunbcNlF
+DUNtS7kPyf8MuKMw6VpXg3miXQuh5gs=
+=TLdr
 -----END PGP SIGNATURE-----
