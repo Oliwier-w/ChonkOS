@@ -1,0 +1,64 @@
+/* ChonkOS Waybar style: flat Arctic slate and cyan, 26px bar, 1px bottom
+ * border, zero gradients. Colors match the chonk palette; the generated
+ * waybar-colors.css layer (@import) overrides them when present. */
+
+* {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    min-height: 0;
+}
+
+window#waybar {
+    background-color: #0E141B;
+    border-bottom: 1px solid #263646;
+    color: #E6EEF5;
+    transition: none;
+}
+
+#workspaces button {
+    padding: 0 8px;
+    margin: 0;
+    background-color: transparent;
+    border: none;
+    color: #8CA0B3;
+}
+
+#workspaces button.focused {
+    background-color: #16202A;
+    color: #38BDF8;
+    border-bottom: 1px solid #38BDF8;
+}
+
+#clock,
+#custom-chonky,
+#memory,
+#network,
+#battery {
+    padding: 0 12px;
+    margin: 0;
+}
+
+#custom-chonky {
+    color: #38BDF8;
+}
+
+#clock {
+    color: #E6EEF5;
+}
+
+#memory,
+#network {
+    color: #8CA0B3;
+}
+
+#battery {
+    color: #E6EEF5;
+}
+
+#battery.warning {
+    color: #F59E0B;
+}
+
+#battery.critical {
+    color: #EF4444;
+}

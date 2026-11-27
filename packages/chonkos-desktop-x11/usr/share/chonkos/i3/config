@@ -1,0 +1,112 @@
+# ChonkOS X11 fallback i3 configuration (flat Arctic style).
+# Key bindings mirror the Sway segments from chonkos-desktop.
+
+set $mod Mod4
+set $terminal i3-sensible-terminal
+set $launcher rofi -show drun
+set $left h
+set $down j
+set $up k
+set $right l
+
+font pango:JetBrains Mono 10
+
+# Flat Arctic window decorations: crisp 1px borders, no gradients.
+client.focused #3B82A6 #16202A #E6EEF5 #38BDF8
+client.focused_inactive #0E141B #0E141B #8CA0B3 #263646
+client.unfocused #0E141B #0E141B #8CA0B3 #263646
+client.urgent #EF4444 #EF4444 #0E141B #EF4444
+client.placeholder #0E141B #0E141B #8CA0B3 #0E141B
+client.background #0E141B
+
+# Clean titleless tiling.
+default_border pixel 1
+default_floating_border pixel 1
+gaps inner 4
+smart_borders on
+smart_gaps on
+floating_modifier $mod
+
+# Applications.
+bindsym $mod+Return exec $terminal
+bindsym $mod+d exec $launcher
+bindsym $mod+Shift+q kill
+
+# Screenshot the interactive selection straight to the clipboard.
+bindsym Print exec --no-startup-id scrot -s /tmp/chonkos-shot.png && xclip -selection clipboard -t image/png -i /tmp/chonkos-shot.png && rm -f /tmp/chonkos-shot.png
+
+# Focus and movement.
+bindsym $mod+$left focus left
+bindsym $mod+$down focus down
+bindsym $mod+$up focus up
+bindsym $mod+$right focus right
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+bindsym $mod+Shift+$left move left
+bindsym $mod+Shift+$down move down
+bindsym $mod+Shift+$up move up
+bindsym $mod+Shift+$right move right
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# Layout.
+bindsym $mod+b splith
+bindsym $mod+v splitv
+bindsym $mod+e layout toggle split
+bindsym $mod+f fullscreen toggle
+bindsym $mod+space floating toggle
+bindsym $mod+a focus parent
+
+# Session control.
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+e exec --no-startup-id i3-nagbar -t warning -m 'Exit this ChonkOS session?' -b 'Exit' 'i3-msg exit'
+
+# Volume (PipeWire via wpctl).
+bindsym XF86AudioRaiseVolume exec --no-startup-id wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+
+bindsym XF86AudioLowerVolume exec --no-startup-id wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%-
+bindsym XF86AudioMute exec --no-startup-id wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+
+# Brightness.
+bindsym XF86MonBrightnessUp exec --no-startup-id brightnessctl set +5%
+bindsym XF86MonBrightnessDown exec --no-startup-id brightnessctl set 5%-
+
+# Notifications.
+exec --no-startup-id dunst
+
+# Minimal flat bar: workspace buttons only.
+bar {
+    position top
+    font pango:JetBrains Mono 10
+    colors {
+        background #0E141B
+        statusline #E6EEF5
+        separator #263646
+        focused_workspace #16202A #16202A #38BDF8
+        active_workspace #0E141B #0E141B #8CA0B3
+        inactive_workspace #0E141B #0E141B #8CA0B3
+        urgent_workspace #EF4444 #EF4444 #0E141B
+    }
+}
+
+# Resize mode.
+mode "resize" {
+    bindsym $left resize shrink width 10 px
+    bindsym $down resize grow height 10 px
+    bindsym $up resize shrink height 10 px
+    bindsym $right resize grow width 10 px
+    bindsym Left resize shrink width 10 px
+    bindsym Down resize grow height 10 px
+    bindsym Up resize shrink height 10 px
+    bindsym Right resize grow width 10 px
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+r mode "resize"
+
+# Zero-Clobber: user override segments are appended and never touched by
+# package upgrades.
+include ~/.config/chonkos/overrides/i3/*.conf

@@ -1,0 +1,16 @@
+# ChonkOS Mako base configuration (flat Arctic style).
+# mako has no include= support: /usr/libexec/chonkos/mako-launch
+# concatenates this file with the generated theme and user override.
+
+background-color=#16202A
+text-color=#E6EEF5
+border-color=#263646
+border-size=1
+width=360
+height=120
+padding=10
+margin=16
+gap=4
+anchor=top-right
+font=JetBrains Mono 10
+default-timeout=5000

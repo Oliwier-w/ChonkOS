@@ -1,0 +1,23 @@
+#!/bin/sh
+# ChonkOS Mako launcher. Mako has no include= support, so the existing layers
+# (base config, generated theme, user override) are concatenated into one
+# runtime config in that order.
+set -e
+
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
+cfg=$runtime_dir/chonkos-mako.conf
+
+{
+    if [ -f /usr/share/chonkos/mako/config ]; then
+        cat /usr/share/chonkos/mako/config
+    fi
+    if [ -f "$config_home/chonkos/generated/mako-theme.conf" ]; then
+        cat "$config_home/chonkos/generated/mako-theme.conf"
+    fi
+    if [ -f "$config_home/chonkos/overrides/mako/config" ]; then
+        cat "$config_home/chonkos/overrides/mako/config"
+    fi
+} > "$cfg"
+
+exec mako --config "$cfg"

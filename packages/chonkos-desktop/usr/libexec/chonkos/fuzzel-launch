@@ -1,0 +1,23 @@
+#!/bin/sh
+# ChonkOS Fuzzel launcher. Builds a runtime config from include= lines
+# pointing only at files that actually exist (base config, generated theme,
+# user override).
+set -e
+
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
+cfg=$runtime_dir/chonkos-fuzzel.ini
+
+{
+    if [ -f /usr/share/chonkos/fuzzel/fuzzel.ini ]; then
+        printf 'include=/usr/share/chonkos/fuzzel/fuzzel.ini\n'
+    fi
+    if [ -f "$config_home/chonkos/generated/fuzzel-theme.ini" ]; then
+        printf 'include=%s/chonkos/generated/fuzzel-theme.ini\n' "$config_home"
+    fi
+    if [ -f "$config_home/chonkos/overrides/fuzzel/fuzzel.ini" ]; then
+        printf 'include=%s/chonkos/overrides/fuzzel/fuzzel.ini\n' "$config_home"
+    fi
+} > "$cfg"
+
+exec fuzzel --config "$cfg" "$@"

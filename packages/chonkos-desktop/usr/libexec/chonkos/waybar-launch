@@ -1,0 +1,23 @@
+#!/bin/sh
+# ChonkOS Waybar launcher. Assembles runtime CSS from @import lines pointing
+# only at files that actually exist, so the base style, the generated theme
+# and the user override never clobber each other.
+set -e
+
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
+css=$runtime_dir/chonkos-waybar.css
+
+{
+    if [ -f /usr/share/chonkos/waybar/style.css ]; then
+        printf '@import "/usr/share/chonkos/waybar/style.css";\n'
+    fi
+    if [ -f "$config_home/chonkos/generated/waybar-colors.css" ]; then
+        printf '@import "%s/chonkos/generated/waybar-colors.css";\n' "$config_home"
+    fi
+    if [ -f "$config_home/chonkos/overrides/waybar/style.css" ]; then
+        printf '@import "%s/chonkos/overrides/waybar/style.css";\n' "$config_home"
+    fi
+} > "$css"
+
+exec waybar -c /usr/share/chonkos/waybar/config.jsonc -s "$css"

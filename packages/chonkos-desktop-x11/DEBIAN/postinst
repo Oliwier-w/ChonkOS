@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+    if [ -d /run/systemd/system ]; then
+        systemd-tmpfiles --create /usr/lib/tmpfiles.d/chonkos-tuigreet.conf || true
+        systemctl daemon-reload || true
+    fi
+    echo "Run 'sudo chonk mode desktop' or reboot to start graphical login."
+fi

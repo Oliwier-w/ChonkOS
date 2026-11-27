@@ -1,0 +1,75 @@
+#!/bin/sh
+# ChonkOS Sway session wrapper. Assembles the runtime Sway config from the
+# /usr/share/chonkos/sway/conf.d segments using segment shadowing: a user
+# override replaces the whole shipped segment, which prevents duplicated
+# blocks such as two bar {} definitions. Then execs Sway.
+set -e
+
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
+generated_dir=$config_home/chonkos/generated
+override_dir=$config_home/chonkos/overrides/sway
+
+# Optional generated session environment (theme tokens, mode switches).
+session_env=$generated_dir/session-env
+if [ -f "$session_env" ]; then
+    # shellcheck disable=SC1090
+    . "$session_env"
+fi
+
+# NVIDIA driver series 550 and older cannot run Sway (missing GBM support).
+# Refuse to launch into a black screen unless explicitly opted in.
+if [ -r /proc/driver/nvidia/version ]; then
+    if [ "${CHONKOS_NVIDIA_EXPERIMENTAL:-}" = "1" ]; then
+        # Explicit opt-in: try the Vulkan renderer anyway.
+        export WLR_RENDERER=vulkan
+        nvidia_experimental=1
+    else
+        version=$(grep -oE '[0-9]+\.[0-9]+' /proc/driver/nvidia/version | head -n 1)
+        major=${version%%.*}
+        case "$major" in
+            '' | *[!0-9]*) major=999 ;;
+        esac
+        if [ "$major" -le 550 ]; then
+            echo "chonkos-desktop: the NVIDIA driver ${version:-unknown} is too old for Sway." >&2
+            echo "chonkos-desktop: install the X11 fallback with 'sudo apt install chonkos-desktop-x11'," >&2
+            echo "chonkos-desktop: or set CHONKOS_NVIDIA_EXPERIMENTAL=1 to try Sway anyway." >&2
+            exit 0
+        fi
+    fi
+fi
+
+cfg=$runtime_dir/chonkos-sway.conf
+{
+    # Color palette: generated tokens win, the shipped palette is the fallback.
+    if [ -f "$generated_dir/sway-colors.conf" ]; then
+        printf 'include "%s"\n' "$generated_dir/sway-colors.conf"
+    else
+        printf 'include "/usr/share/chonkos/sway/default-colors.conf"\n'
+    fi
+
+    # Segment shadowing: a user override replaces the whole shipped segment.
+    for segment in /usr/share/chonkos/sway/conf.d/*.conf; do
+        [ -e "$segment" ] || continue
+        name=${segment##*/}
+        if [ -f "$override_dir/$name" ]; then
+            printf 'include "%s"\n' "$override_dir/$name"
+        else
+            printf 'include "%s"\n' "$segment"
+        fi
+    done
+
+    # Extra user segments that shadow nothing are appended last.
+    for extra in "$override_dir"/*.conf; do
+        [ -e "$extra" ] || continue
+        name=${extra##*/}
+        if [ ! -e "/usr/share/chonkos/sway/conf.d/$name" ]; then
+            printf 'include "%s"\n' "$extra"
+        fi
+    done
+} > "$cfg"
+
+if [ -n "${nvidia_experimental:-}" ]; then
+    exec sway --unsupported-gpu -c "$cfg"
+fi
+exec sway -c "$cfg"

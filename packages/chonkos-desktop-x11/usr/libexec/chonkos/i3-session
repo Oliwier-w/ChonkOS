@@ -1,0 +1,7 @@
+#!/bin/sh
+# ChonkOS X11 session wrapper for greetd: start i3 with the shipped flat
+# Arctic configuration. The user's own ~/.config/i3/config is never touched;
+# overrides are pulled in by the include at the bottom of the shipped config.
+set -e
+
+exec startx /usr/bin/i3 -c /usr/share/chonkos/i3/config -- :0 vt7

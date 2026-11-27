@@ -1,0 +1,23 @@
+#!/bin/sh
+# ChonkOS Foot launcher. Builds a runtime config from include= lines pointing
+# only at files that actually exist (base config, generated theme, user
+# override).
+set -e
+
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
+cfg=$runtime_dir/chonkos-foot.ini
+
+{
+    if [ -f /usr/share/chonkos/foot/foot.ini ]; then
+        printf 'include=/usr/share/chonkos/foot/foot.ini\n'
+    fi
+    if [ -f "$config_home/chonkos/generated/foot-theme.ini" ]; then
+        printf 'include=%s/chonkos/generated/foot-theme.ini\n' "$config_home"
+    fi
+    if [ -f "$config_home/chonkos/overrides/foot/foot.ini" ]; then
+        printf 'include=%s/chonkos/overrides/foot/foot.ini\n' "$config_home"
+    fi
+} > "$cfg"
+
+exec foot --config "$cfg" "$@"

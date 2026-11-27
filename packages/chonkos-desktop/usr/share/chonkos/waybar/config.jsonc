@@ -1,0 +1,46 @@
+// ChonkOS Waybar configuration (flat Arctic layout).
+// Colors come from style.css assembled by /usr/libexec/chonkos/waybar-launch.
+{
+    "height": 26,
+    "position": "top",
+    "modules-left": ["sway/workspaces"],
+    "modules-center": ["clock"],
+    "modules-right": ["custom/chonky", "memory", "network", "battery"],
+
+    "sway/workspaces": {
+        "disable-scroll": true,
+        "format": "{name}"
+    },
+
+    "clock": {
+        "format": "{:%H:%M}",
+        "format-alt": "{:%Y-%m-%d %H:%M}",
+        "tooltip-format": "{:%Y-%m-%d}"
+    },
+
+    "custom/chonky": {
+        "exec": "chonk mood --waybar",
+        "return-type": "json",
+        "interval": 20,
+        "signal": 8,
+        "tooltip": false
+    },
+
+    "memory": {
+        "format": "RAM {percentage}%",
+        "tooltip": false
+    },
+
+    "network": {
+        "format-ethernet": "{ifname}",
+        "format-wifi": "{ifname} {signalStrength}%",
+        "format-disconnected": "offline",
+        "tooltip": false
+    },
+
+    "battery": {
+        "format": "BAT {capacity}%",
+        "format-charging": "BAT {capacity}%+",
+        "tooltip": false
+    }
+}
