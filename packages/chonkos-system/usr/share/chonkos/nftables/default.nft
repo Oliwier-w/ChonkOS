@@ -24,7 +24,7 @@ table inet chonkos_filter {
         iifname "lo" accept
         ct state established,related accept
         ip protocol icmp accept
-        ip6 nexthdr ipv6-icmp accept
+        ip6 nexthdr icmpv6 accept
 
         # Temporary ports leased by `whisker lease`.
         tcp dport @chonkos_leases_tcp accept
