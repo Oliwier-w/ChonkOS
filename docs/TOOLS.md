@@ -84,9 +84,63 @@ With `--json`:
 {"profile":"battery","lid":"suspend","tlp_mode":"bat","guard_suggested":true,"lan":["192.168.1.10"],"tailscale":["100.64.0.2"],"dark":false}
 ```
 
-### chonk card [--plain]
+### chonk apply [--config PATH] [--dry-run]
 
-Shows release and kernel versions, uptime, PSS across readable processes, ZRAM usage and compression, boot time or load average, available battery and thermal readings, wildcard and loopback listeners, and the latest seal. Use `--plain` to suppress the terminal illustration and colors.
+Reads `~/.config/chonkos/chonk.toml` (or `--config PATH`) and renders the theme files (`sway-colors.conf`, `waybar-colors.css`, `foot-theme.ini`, `fuzzel-theme.ini`, `mako-theme.conf`, `tmux-theme.conf`, `shell-palette.sh`, `session-env`) into `~/.config/chonkos/generated/`, then reloads running sway, mako, waybar and tmux. As root it first creates a `pre-apply` seal. With `--dry-run` nothing is written and no reload happens.
+
+```
+chonk apply --dry-run
+sudo chonk apply
+chonk --json apply
+```
+
+With `--json`:
+
+```json
+{"dry_run":false,"files":["/home/user/.config/chonkos/generated/sway-colors.conf"],"warnings":[]}
+```
+
+### chonk mode <desktop|homelab|status> [--dark] [--dry-run]
+
+Chameleon Mode. `desktop` sets `graphical.target`, enables `greetd.service` (requires `chonkos-desktop`), and disables the TTY dashboard. `homelab` sets `multi-user.target`, enables `chonkos-tty-dash@tty1.service`, disables greetd, sets the lid action to ignore, and enables the battery guard and `nap dive` when a battery is present; `--dark` also runs `nap dark on`. `status` reports the saved mode, default target, and whether greetd and the dashboard are active. Changes require root. `--dry-run` prints the planned steps without applying them.
+
+```
+sudo chonk mode desktop
+sudo chonk mode homelab --dark
+chonk mode status
+chonk --json mode homelab --dry-run
+```
+
+With `--json`:
+
+```json
+{"mode":"homelab","dry_run":true,"steps":[["systemctl","set-default","multi-user.target"],["systemctl","enable","--now","chonkos-tty-dash@tty1.service"]]}
+```
+
+`chonk mode status --json`:
+
+```json
+{"mode":"homelab","default_target":"multi-user.target","greetd_active":false,"dashboard_active":true}
+```
+
+### chonk mood [--waybar]
+
+Reports the system mood: `calm`, `seal` (uncommitted seal diff), `alert` (CRITICAL whisker drift or active firewall leases), or `hot` (temperature at or above 80 C, or PSS at or above 85 % of RAM). With `--waybar` it prints the Waybar custom-module JSON contract (`text`, `alt`, `class`, `tooltip`); Waybar runs it with `return-type: "json"` and refreshes it via signal 8.
+
+```
+chonk mood
+chonk --json mood --waybar
+```
+
+With `--json --waybar`:
+
+```json
+{"text":"CHONK","alt":"calm","class":["chonky","state-calm"],"tooltip":"State: calm\nPSS: 1.2 GiB\nZRAM: 512 MiB\nTemp: 54.0 C\nPorts: 1 exposed, 2 loopback"}
+```
+
+### chonk card [--plain] [--tty]
+
+Shows release and kernel versions, uptime, PSS across readable processes, ZRAM usage and compression, boot time or load average, available battery and thermal readings, wildcard and loopback listeners, and the latest seal. Use `--plain` to suppress the terminal illustration and colors. Use `--tty` for the plain console variant rendered every 15 s by the TTY1 dashboard (`chonkos-tty-dash@tty1.service`).
 
 ```
 chonk card
@@ -264,6 +318,37 @@ With `--json`:
 {"panel":"off","console_blank_minutes":1,"wifi_powersave":"off","watts_before":12.4,"watts_after":9.1}
 ```
 
+### nap dive enable [--threshold 10..50] [--services a.service,b.service] | disable | status
+
+Configures battery-triggered UPS shutdown and persists it under `/var/lib/chonkos/`; `enable` also creates `/var/lib/chonkos/nap-dive.enabled`, which arms the udev-triggered `chonkos-nap-dive.service`. Default threshold is 20 %.
+
+```
+sudo nap dive enable --threshold 20 --services docker.service
+sudo nap dive disable
+nap dive status
+```
+
+With `--json`:
+
+```json
+{"status":"enabled","config":{"threshold_percent":20,"services":["docker.service"]}}
+```
+
+### nap dive --event [--dry-run]
+
+Runs the UPS check; invoked by `chonkos-nap-dive.service` on `power_supply` change events. With AC online or no battery it reports `ac_online` or `no_battery`. While discharging above the threshold it reports `on_battery_monitoring` and blanks the screen unless `--dry-run`. At or below the threshold it marks a `powerloss` seal, stops the configured services, syncs and powers off; `--dry-run` only lists the planned steps. The actual poweroff requires root.
+
+```
+sudo nap dive --event
+sudo nap --json dive --event --dry-run
+```
+
+With `--json`:
+
+```json
+{"status":"poweroff_requested","battery_percent":18,"warnings":[]}
+```
+
 ## whisker
 
 Socket, network and port inspection.
@@ -309,6 +394,81 @@ Waits until a TCP connection to HOST:PORT succeeds. `--timeout` is in seconds (d
 ```
 whisker watch 192.168.1.10:22
 whisker watch example.com:443 --timeout 10 --interval 200
+```
+
+### whisker lease add PORT --for DURATION [--proto tcp|udp]
+
+Adds an expiring firewall lease: inserts PORT into the native nftables set `chonkos_leases_tcp` or `chonkos_leases_udp` (table `inet chonkos_filter`) with a kernel-side timeout, so the input chain accepts the port and the kernel removes the entry when it expires (fail-closed on reboot). DURATION is a `<number><unit>` sequence with unit `s`, `m` or `h`, totalling 10 s to 24 h. Requires root and the base template shipped by `chonkos-system`.
+
+```
+sudo whisker lease add 8080 --for 30m
+sudo whisker lease add 53 --for 1h --proto udp
+whisker --json lease add 8080 --for 600s
+```
+
+With `--json`:
+
+```json
+{"status":"added","proto":"tcp","port":8080,"timeout":1800}
+```
+
+### whisker lease list
+
+Lists the active leases with their configured timeout and remaining time. Requires root.
+
+```
+sudo whisker lease list
+whisker --json lease list
+```
+
+With `--json`:
+
+```json
+{"leases":[{"proto":"tcp","port":8080,"timeout":1800,"expires":1712}]}
+```
+
+### whisker lease revoke PORT [--proto tcp|udp]
+
+Removes a lease immediately instead of waiting for its timeout. Requires root.
+
+```
+sudo whisker lease revoke 8080
+```
+
+With `--json`:
+
+```json
+{"status":"revoked","proto":"tcp","port":8080}
+```
+
+### whisker baseline [--save]
+
+Snapshots the current listening sockets (protocol, bind address, port, scope, owning executable). Without `--save` it only reports (`"status":"snapshot"`); with `--save` it atomically writes the baseline to `/var/lib/chonkos/whisker-baseline.json` (requires root, `"status":"saved"`).
+
+```
+whisker baseline
+sudo whisker --json baseline --save
+```
+
+With `--json`:
+
+```json
+{"schema_version":1,"timestamp":"2026-01-01T12:00:00Z","sha256":"...","entries":[{"proto":"tcp","bind_addr":"0.0.0.0","port":22,"scope":"exposed","exe_path":"/usr/sbin/sshd"}],"status":"saved"}
+```
+
+### whisker drift
+
+Compares the current sockets against the saved baseline. `"status"` is `"clean"`, `"drift"`, or `"uninitialized"` when no baseline exists. Exit code is `2` when any CRITICAL change is found (for example a new exposed port), `0` otherwise.
+
+```
+whisker drift
+whisker --json drift
+```
+
+With `--json`:
+
+```json
+{"status":"drift","changes":[{"severity":"CRITICAL","reason":"new_exposed_port","entry":{"proto":"tcp","bind_addr":"0.0.0.0","port":8080,"scope":"exposed","exe_path":"/usr/bin/python3"}}]}
 ```
 
 ## seal

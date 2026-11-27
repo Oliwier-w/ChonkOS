@@ -128,6 +128,37 @@ mod tests {
         }
         packages::stage(&out, &bin)?;
 
+        let metrics: serde_json::Value =
+            serde_json::from_slice(&fs::read(out.join("metrics.json"))?)?;
+        for (name, config, wrapper) in [
+            ("chonkos-desktop", "chonkos.toml", "sway-session"),
+            ("chonkos-desktop-x11", "chonkos-x11.toml", "i3-session"),
+        ] {
+            let staged = out.join(name);
+            let greetd = staged.join("etc/greetd").join(config);
+            assert!(fs::read_to_string(&greetd)?.contains(env!("CARGO_PKG_VERSION")));
+            assert!(!greetd.with_extension("toml.in").exists());
+            let wrapper = format!("usr/libexec/chonkos/{wrapper}");
+            assert!(fs::read_to_string(staged.join("DEBIAN/md5sums"))?.contains(&wrapper));
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(
+                    fs::metadata(staged.join(wrapper))?.permissions().mode() & 0o777,
+                    0o755
+                );
+            }
+            let size = metrics["packages"][name]["installed_size_kib"]
+                .as_u64()
+                .unwrap();
+            assert!(size > 0);
+            assert!(fs::read_to_string(staged.join("DEBIAN/control"))?
+                .contains(&format!("Installed-Size: {size}\n")));
+            let doc = staged.join("usr/share/doc").join(name);
+            assert!(doc.join("copyright").is_file());
+            assert!(doc.join("changelog.Debian.gz").is_file());
+        }
+
         let package = out.join("chonkos-tools");
         let sums = fs::read_to_string(package.join("DEBIAN/md5sums"))?;
         for (name, _) in TOOLS {

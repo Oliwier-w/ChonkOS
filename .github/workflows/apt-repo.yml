@@ -13,6 +13,7 @@ defaults:
 
 jobs:
   checks:
+    name: Build, lint, and test Debian packages
     uses: ./.github/workflows/pr-check.yml
 
   publish:

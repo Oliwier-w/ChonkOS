@@ -11,8 +11,13 @@
 │ chonkos-shell — /etc/profile.d/chonkos.sh,  │
 │ /etc/tmux.conf, MOTD (update-motd.d)        │
 ├─────────────────────────────────────────────┤
+│ chonkos-desktop — Sway + Waybar + Foot +    │
+│ Fuzzel + Mako, greetd/tuigreet (Wayland)    │
+│ chonkos-desktop-x11 — i3 + Dunst fallback   │
+├─────────────────────────────────────────────┤
 │ chonkos-system — zram-tools drop-in,        │
-│ sysctl.d, tlp.d, ufw                        │
+│ sysctl.d, tlp.d, nftables template, udev    │
+│ dive hook, TTY dashboard unit               │
 ├─────────────────────────────────────────────┤
 │ chonkos-core — metapackage: base CLI tools  │
 │ (git, curl, ripgrep, fd-find, fzf, tmux,    │
@@ -42,7 +47,8 @@
 
 - Ships `/etc/sysctl.d/90-chonkos.conf` (swappiness, page-cluster, vfs cache pressure, dirty ratios) and `/etc/tlp.d/90-chonkos.conf` (governors, Wi-Fi power, runtime PM).
 - ZRAM is provided by `zram-tools`: the package ships `etc/chonkos/zramswap` (zstd, 50 %, priority 100) and a `zramswap.service.d` drop-in that bind-mounts it read-only over `/etc/default/zramswap`. The distribution conffile is therefore never modified and nothing has to be restored on purge.
-- The firewall uses UFW: `install.sh --with-firewall` (alias for `--with-ufw`) installs `ufw`, allows every port configured in `sshd -T` plus the tailscale0 interface, and enables the default deny-incoming policy. `chonk doctor` warns when both UFW and nftables are active at the same time.
+- The base firewall ships as `/usr/share/chonkos/nftables/default.nft` (table `inet chonkos_filter`, default-drop input chain) and ends with `include "/etc/nftables.d/*.nft"`. `whisker lease add` inserts ports into the native `flags timeout` sets `chonkos_leases_tcp` / `chonkos_leases_udp`; the kernel expires the entries by itself, so leases fail closed on reboot. `install.sh --with-firewall` still installs UFW; `chonk doctor` warns when both UFW and nftables are active. `postinst` never enables `nftables.service`.
+- Battery (UPS) events reach userspace via udev: `90-chonkos-dive.rules` reacts to `power_supply` `change` events by setting `SYSTEMD_WANTS=chonkos-nap-dive.service` (never `RUN+=`). The oneshot runs `/usr/bin/nap dive --event` only while `/var/lib/chonkos/nap-dive.enabled` exists. `postinst` reloads udev rules with `udevadm control --reload-rules` only when systemd is running.
 - `postinst` applies sysctls (`sysctl --system`) and enables/restarts `tlp.service` and `zramswap.service` when systemd is running; a failing unit produces a warning instead of aborting the configure step.
 
 ## Shell environment (chonkos-shell)
@@ -50,6 +56,24 @@
 - `/etc/profile.d/chonkos.sh` — interactive Bash prompt with git branch, `fd`/`ll`/`la`/`gs`/`gl` aliases and fzf key bindings (Debian's `fd-find` is aliased to `fd`).
 - `/etc/tmux.conf` — mouse on, base index 1, renumbering, 10k history, minimal status bar.
 - `/etc/update-motd.d/90-chonkos` — login MOTD line with OS, kernel, uptime, RAM usage and `/dev/zram0` state, plus a pointer to `chonk doctor`.
+
+## Zero-Clobber configuration layers
+
+All ChonkOS-managed configuration follows four layers, and package upgrades never overwrite user files:
+
+1. `/usr/share/chonkos/` — shipped defaults (Layer 0).
+2. `~/.config/chonkos/chonk.toml` — user intent (Layer 1).
+3. `~/.config/chonkos/generated/` — files written by `chonk apply` from `chonk.toml` (Layer 2).
+4. `~/.config/chonkos/overrides/` — hand-written user files (Layer 3), always winning.
+
+The wrappers in `/usr/libexec/chonkos/` assemble runtime configs from these layers at session start. `sway-session` uses segment shadowing: for each `/usr/share/chonkos/sway/conf.d/*.conf`, an override with the same basename replaces the whole shipped segment (so two `bar {}` blocks can never collide), and non-shadowing overrides are appended last. `waybar-launch`, `foot-launch` and `fuzzel-launch` emit `@import`/`include=` lines only for files that actually exist; `mako-launch` concatenates the existing layers because mako has no `include`. `/etc/tmux.conf` sources `generated/tmux-theme.conf` and `overrides/tmux/tmux.conf` when readable.
+
+## Desktop and greeter (chonkos-desktop, chonkos-desktop-x11)
+
+- `chonkos-desktop` ships the Sway/Wayland session; `chonkos-desktop-x11` ships i3 + Dunst for NVIDIA driver series 550 and older (the `sway-session` wrapper exits with a recommendation to install it). The two packages `Conflicts:` each other.
+- greetd integration never touches `/etc/greetd/config.toml`, which is owned by Debian's `greetd` package. Each edition ships its own conffile (`/etc/greetd/chonkos.toml` or `/etc/greetd/chonkos-x11.toml`, rendered from a `.in` template) and a `greetd.service.d` drop-in that resets `ExecStart=` and points greetd at that file with `--config`.
+- The greeter runs as the `_greetd` system user on VT 7 via `tuigreet`. `/usr/lib/tmpfiles.d/chonkos-tuigreet.conf` creates `/var/cache/tuigreet`; `postinst` applies it with `systemd-tmpfiles --create` only when systemd is running. Neither desktop package starts greetd during install — `chonk mode desktop` enables it.
+- In homelab mode, `chonk mode homelab` instead enables `chonkos-tty-dash@tty1.service`, a passive dashboard that runs `/usr/libexec/chonkos/tty-dash-loop` (refreshing `chonk card --tty` every 15 s) on TTY1 and conflicts with `getty@tty1`.
 
 ## Branding
 

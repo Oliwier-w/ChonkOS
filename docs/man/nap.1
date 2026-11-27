@@ -1,14 +1,15 @@
-.TH NAP 1 "2025" "ChonkOS" "User Commands"
+.TH NAP 1 "2026" "ChonkOS" "User Commands"
 .SH NAME
-nap \- power and lid management
+nap \- power, lid and UPS management
 .SH SYNOPSIS
 .B nap
 .RB [ \-\-json ]
 .I command
 .SH DESCRIPTION
 .B nap
-reports power state and controls systemd-inhibit locks and the lid switch
-action. Exit status is 0 on success and 1 on any error; \fBnap stay\fR
+reports power state and controls systemd-inhibit locks, the lid switch
+action, the hardware battery charge limit, dark mode, and battery-triggered
+UPS shutdown. Exit status is 0 on success and 1 on any error; \fBnap stay\fR
 returns the wrapped command's exit code.
 .SH OPTIONS
 .TP
@@ -65,6 +66,27 @@ Restore the backlights and remove the NetworkManager drop-in. Requires root.
 .TP
 .BR dark " status"
 Show current panel, console and drop-in state.
+.TP
+.BR dive " enable [\fB\-\-threshold\fR 10..50] [\fB\-\-services\fR a.service,b.service]"
+Configure battery-triggered UPS shutdown, persisted under /var/lib/chonkos/;
+also creates /var/lib/chonkos/nap-dive.enabled, which arms the
+udev-triggered chonkos-nap-dive.service. Default threshold 20. Requires
+root. With \fB\-\-json\fR prints
+{"status":"enabled","config":{"threshold_percent":20,"services":[...]}}.
+.TP
+.BR dive " disable"
+Remove the UPS configuration and the enabled marker. Requires root.
+.TP
+.BR dive " status"
+Report the UPS configuration.
+.TP
+.BR dive " \fB\-\-event\fR [\fB\-\-dry\-run\fR]"
+Run the UPS check (invoked by chonkos-nap-dive.service on power_supply
+change events). Reports ac_online or no_battery when not discharging;
+on_battery_monitoring while above the threshold; at or below the threshold
+it marks a \fBpowerloss\fR seal, stops the configured services, syncs and
+powers off (\fB\-\-dry\-run\fR only lists the steps). The poweroff requires
+root.
 .SH EXAMPLES
 .TP
 nap status
@@ -86,10 +108,19 @@ nap guard status
 sudo nap dark on
 .TP
 nap --json dark status
+.TP
+sudo nap dive enable --threshold 20 --services docker.service
+.TP
+sudo nap dive --event --dry-run
+.TP
+sudo nap --json dive --event
 .SH FILES
 .TP
 .I /etc/systemd/logind.conf.d/90-chonkos-lid.conf
 ChonkOS logind lid drop-in written by \fBnap lid\fR.
+.TP
+.I /var/lib/chonkos/nap-dive.enabled
+Marker arming the udev-triggered chonkos-nap-dive.service.
 .SH SEE ALSO
 .BR chonk (1),
 .BR whisker (1)

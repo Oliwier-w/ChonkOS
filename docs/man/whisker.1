@@ -1,15 +1,17 @@
-.TH WHISKER 1 "2025" "ChonkOS" "User Commands"
+.TH WHISKER 1 "2026" "ChonkOS" "User Commands"
 .SH NAME
-whisker \- socket, network and port inspection
+whisker \- socket, network, firewall lease and drift inspection
 .SH SYNOPSIS
 .B whisker
 .RB [ \-\-json ]
 .I command
 .SH DESCRIPTION
 .B whisker
-lists listening sockets with their owners, terminates processes bound to a
-port, and reports network status. Exit status is 0 on success and 1 on any
-error; \fBwatch\fR exits 1 on timeout.
+lists listening sockets with their owners, manages expiring nftables firewall
+leases, detects listener drift against a saved baseline, terminates processes
+bound to a port, and reports network status. Exit status is 0 on success and
+1 on any error; \fBwatch\fR exits 1 on timeout and \fBdrift\fR exits 2 when
+CRITICAL changes are found.
 .SH OPTIONS
 .TP
 .BR \-\-json
@@ -20,6 +22,32 @@ Print machine-readable JSON on stdout instead of a table.
 List listening sockets from /proc/net/{tcp,tcp6,udp,udp6} with owner PID and
 process name; each row is tagged exposed, local or interface. \fB\-\-all\fR
 includes sockets in other states.
+.TP
+.BR lease " add PORT \fB\-\-for\fR DURATION [\fB\-\-proto\fR tcp|udp]"
+Insert PORT into the native nftables set chonkos_leases_tcp or
+chonkos_leases_udp (table inet chonkos_filter) with a kernel-side timeout
+(10 s to 24 h); the entry expires on its own and is gone after a reboot.
+Requires root. With \fB\-\-json\fR prints
+{"status":"added","proto":"tcp","port":8080,"timeout":1800}.
+.TP
+.BR lease " list"
+List active leases with timeout and remaining seconds. Requires root.
+With \fB\-\-json\fR prints
+{"leases":[{"proto":"tcp","port":8080,"timeout":1800,"expires":1712}]}.
+.TP
+.BR lease " revoke PORT [\fB\-\-proto\fR tcp|udp]"
+Remove a lease immediately. Requires root. With \fB\-\-json\fR prints
+{"status":"revoked","proto":"tcp","port":8080}.
+.TP
+.BR baseline " [\fB\-\-save\fR]"
+Snapshot the current listening sockets (protocol, bind address, port, scope,
+owning executable). \fB\-\-save\fR atomically writes
+/var/lib/chonkos/whisker-baseline.json and requires root.
+.TP
+.B drift
+Compare current sockets against the saved baseline; exits 2 on CRITICAL
+changes (for example a new exposed port), 0 otherwise. With \fB\-\-json\fR
+prints {"status":"clean|drift|uninitialized","changes":[...]}.
 .TP
 .BR kill " PORT [\fB\-\-force\fR] [\fB\-\-yes\fR]"
 Terminate the processes listening on PORT: SIGTERM by default, SIGKILL with
@@ -47,6 +75,16 @@ whisker ports
 .TP
 whisker --json ports --all
 .TP
+sudo whisker lease add 8080 --for 30m
+.TP
+sudo whisker --json lease list
+.TP
+sudo whisker lease revoke 8080
+.TP
+sudo whisker baseline --save
+.TP
+whisker --json drift
+.TP
 whisker kill 8080
 .TP
 whisker kill 8080 --yes
@@ -56,6 +94,10 @@ whisker net
 whisker net printer.local
 .TP
 whisker watch 192.168.1.10:22 --timeout 10
+.SH FILES
+.TP
+.I /var/lib/chonkos/whisker-baseline.json
+Saved socket baseline used by \fBdrift\fR.
 .SH SEE ALSO
 .BR nap (1),
 .BR chonk (1)

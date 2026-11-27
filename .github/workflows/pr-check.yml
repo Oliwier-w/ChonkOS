@@ -25,12 +25,13 @@ jobs:
         run: |
           dpkg --compare-versions "$(rustc -V | cut -d' ' -f2)" ge 1.93.0
           sudo apt-get update
-          sudo apt-get install -y musl-tools dpkg-dev lintian shellcheck
+          sudo apt-get install -y musl-tools shellcheck
       - name: ShellCheck
         run: |
           shopt -s nullglob
           shellcheck scripts/install.sh packages/*/DEBIAN/{preinst,postinst,prerm,postrm} \
             packages/chonkos-shell/etc/profile.d/chonkos.sh packages/chonkos-shell/etc/update-motd.d/90-chonkos \
+            packages/{chonkos-system,chonkos-desktop,chonkos-desktop-x11}/usr/libexec/chonkos/* \
             .github/scripts/*.sh
       - name: Test, lint and build static binaries
         working-directory: tools
@@ -38,22 +39,34 @@ jobs:
           cargo test --locked
           cargo clippy --locked --all-targets -- -D warnings
           cargo build --locked --workspace --exclude xtask --release --target x86_64-unknown-linux-musl
-      - name: Enforce size budget and build packages
+      - name: Enforce size budget and stage packages
         run: |
           stage=$(mktemp -d)
           cargo run --locked --manifest-path tools/Cargo.toml -p xtask -- stage-packages \
             --out "$stage" --bin-dir tools/target/x86_64-unknown-linux-musl/release
           mkdir build
+          cp "$stage/metrics.json" build/
+          echo "PACKAGE_STAGE=$stage" >> "$GITHUB_ENV"
           export SOURCE_DATE_EPOCH
           SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
-          for package in "$stage"/*/; do
-            dpkg-deb --root-owner-group --build "$package" build/
-          done
-          cp "$stage/metrics.json" build/
-      - name: Lint all Debian packages
-        run: lintian --fail-on error build/*.deb
-      - name: Debian 13 installation and purge
-        run: docker run --rm -v "$PWD/build:/debs:ro" -v "$PWD/.github/scripts:/scripts:ro" debian:trixie-slim bash -euo pipefail /scripts/test-install.sh
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >> "$GITHUB_ENV"
+      - name: Build and lint all Debian packages on Trixie
+        run: |
+          docker run --rm -e SOURCE_DATE_EPOCH -e DEBIAN_FRONTEND=noninteractive \
+            -v "$PACKAGE_STAGE:/stage:ro" -v "$PWD/build:/build" debian:trixie-slim bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends dpkg-dev lintian
+              for package in /stage/*/; do
+                dpkg-deb --root-owner-group --build "$package" /build/
+              done
+              lintian --fail-on error /build/*.deb
+            '
+      - name: Debian 13 core purity
+        run: docker run --rm --cap-add=NET_ADMIN -v "$PWD/build:/debs:ro" -v "$PWD/.github/scripts:/scripts:ro" debian:trixie-slim bash /scripts/test-install.sh core
+      - name: Debian 13 desktop installation and purge
+        run: docker run --rm -v "$PWD/build:/debs:ro" -v "$PWD/.github/scripts:/scripts:ro" debian:trixie-slim bash /scripts/test-install.sh desktop
+      - name: Debian 13 X11 fallback dependency resolution
+        run: docker run --rm -v "$PWD/build:/debs:ro" -v "$PWD/.github/scripts:/scripts:ro" debian:trixie-slim bash /scripts/test-install.sh x11
       - uses: actions/upload-artifact@v4
         with:
           name: checked-packages

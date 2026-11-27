@@ -1,4 +1,4 @@
-.TH CHONK 1 "2025" "ChonkOS" "User Commands"
+.TH CHONK 1 "2026" "ChonkOS" "User Commands"
 .SH NAME
 chonk \- system maintenance for ChonkOS
 .SH SYNOPSIS
@@ -8,8 +8,9 @@ chonk \- system maintenance for ChonkOS
 .SH DESCRIPTION
 .B chonk
 performs maintenance tasks on a ChonkOS system: health checks, APT updates,
-cache cleaning, profile switching, and access to bundled
+cache cleaning, profile and mode switching, theming, and access to bundled
 tool documentation.
+
 Exit status is 0 on success and 1 on any error.
 .SH OPTIONS
 .TP
@@ -42,13 +43,36 @@ runs \fBnap dark on\fR. The lid drop-in is reloaded, never restarted.
 \fIstatus\fR prints the current profile, lid actions, TLP mode, CPU scaling
 governor and ZRAM state. \fB\-\-json\fR is supported for both.
 .TP
-.BR card " [\fB\-\-plain\fR]"
+.BR apply " [\fB\-\-config\fR PATH] [\fB\-\-dry\-run\fR]"
+Read ~/.config/chonkos/chonk.toml (or \fB\-\-config\fR PATH), render the theme
+files into ~/.config/chonkos/generated/, and reload running sway, mako,
+waybar and tmux. As root, a \fBpre\-apply\fR seal is created first.
+\fB\-\-dry\-run\fR writes nothing and skips the reload. With \fB\-\-json\fR prints
+{"dry_run":...,"files":[...],"warnings":[...]}.
+.TP
+.BR mode " <\fIdesktop|homelab|status\fR> [\fB\-\-dark\fR] [\fB\-\-dry\-run\fR]"
+Chameleon Mode. \fIdesktop\fR sets graphical.target, enables greetd.service
+(requires chonkos-desktop) and disables the TTY dashboard. \fIhomelab\fR sets
+multi-user.target, enables chonkos-tty-dash@tty1.service, disables greetd,
+sets the lid action to ignore, and enables the battery guard and nap dive when
+a battery is present; \fB\-\-dark\fR also runs \fBnap dark on\fR. \fIstatus\fR
+reports the saved mode, default target, and greetd/dashboard state. Changes
+require root; \fB\-\-dry\-run\fR only prints the planned steps. With
+\fB\-\-json\fR prints {"mode":...,"dry_run":...,"steps":[[...]]}.
+.TP
+.BR mood " [\fB\-\-waybar\fR]"
+Report the system mood (calm, seal, alert or hot) from temperature, PSS,
+whisker drift, active firewall leases and seal diffs. \fB\-\-waybar\fR prints
+the Waybar custom-module JSON ({"text","alt","class","tooltip"}).
+.TP
+.BR card " [\fB\-\-plain\fR] [\fB\-\-tty\fR]"
 Print a system card: release and kernel versions, uptime, PSS across readable
 processes, ZRAM usage and compression, boot time or load average, battery and
 thermal readings, wildcard/loopback listeners and the latest seal.
-\fB\-\-plain\fR suppresses the terminal illustration and colors. With
-\fB\-\-json\fR the output carries schema_version 1 and an RFC 3339 UTC
-timestamp.
+\fB\-\-plain\fR suppresses the terminal illustration and colors. \fB\-\-tty\fR
+selects the plain console variant used by the TTY1 dashboard
+(chonkos-tty-dash@tty1.service). With \fB\-\-json\fR the output carries
+schema_version 1 and an RFC 3339 UTC timestamp.
 .TP
 .BR try " [\fB\-\-label\fR NAME] \fB\-\-\fR COMMAND [ARG...]"
 Create a seal, run COMMAND synchronously, show the changes and print the
@@ -77,7 +101,19 @@ sudo chonk profile battery --dark
 .TP
 chonk profile status
 .TP
+chonk apply --dry-run
+.TP
+sudo chonk apply
+.TP
+sudo chonk mode homelab --dark
+.TP
+chonk mode status
+.TP
+chonk --json mood --waybar
+.TP
 chonk card --plain
+.TP
+chonk card --tty
 .TP
 chonk --json card
 .TP
@@ -91,6 +127,15 @@ Bundled tools documentation.
 .TP
 .I /var/lib/chonkos/profile
 Active ChonkOS profile.
+.TP
+.I /var/lib/chonkos/mode
+Active Chameleon Mode (desktop or homelab).
+.TP
+.I ~/.config/chonkos/chonk.toml
+User configuration consumed by \fBchonk apply\fR and \fBchonk mode\fR.
+.TP
+.I ~/.config/chonkos/generated/
+Theme files rendered by \fBchonk apply\fR.
 .TP
 .I /etc/apt/sources.list.d/chonkos.sources
 ChonkOS APT repository configuration.

@@ -48,6 +48,7 @@ pub fn stage(out: &Path, bin_dir: &Path) -> Result<()> {
     fs::create_dir_all(out)?;
     let work = tempfile::tempdir_in(out)?;
     let mut outputs = vec![PathBuf::from("metrics.json")];
+    let mut packages = Map::new();
     for source in children(&root.join("packages"))? {
         if !source.is_dir() {
             continue;
@@ -61,7 +62,8 @@ pub fn stage(out: &Path, bin_dir: &Path) -> Result<()> {
         if name == "chonkos-tools" {
             install_tools(&root, &destination, &binaries)?;
         }
-        finish_package(&root, &destination, name)?;
+        let installed_size = finish_package(&root, &destination, name)?;
+        packages.insert(name.into(), json!({"installed_size_kib": installed_size}));
         outputs.push(name.into());
     }
     fs::write(
@@ -69,6 +71,7 @@ pub fn stage(out: &Path, bin_dir: &Path) -> Result<()> {
         serde_json::to_vec_pretty(&json!({
             "version": VERSION,
             "binaries": metrics,
+            "packages": packages,
         }))?,
     )?;
     for name in &outputs {
@@ -162,7 +165,7 @@ fn install_tools(root: &Path, package: &Path, binaries: &[(&str, Vec<u8>)]) -> R
     super::completions(package, true)
 }
 
-fn finish_package(root: &Path, package: &Path, name: &str) -> Result<()> {
+fn finish_package(root: &Path, package: &Path, name: &str) -> Result<u64> {
     let doc = package.join("usr/share/doc").join(name);
     fs::create_dir_all(&doc)?;
     let license = normalize_text(&fs::read_to_string(root.join("LICENSE"))?);
@@ -202,7 +205,7 @@ fn finish_package(root: &Path, package: &Path, name: &str) -> Result<()> {
         }
     }
     fs::write(control, updated)?;
-    Ok(())
+    Ok(installed_size)
 }
 
 fn payload_metadata(
