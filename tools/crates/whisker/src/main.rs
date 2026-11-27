@@ -8,6 +8,10 @@ use std::{
 mod cli;
 use cli::{Cli, Cmd};
 #[cfg(any(test, target_os = "linux"))]
+mod lease;
+#[cfg(any(test, target_os = "linux"))]
+mod snapshot;
+#[cfg(any(test, target_os = "linux"))]
 mod procnet {
     use super::*;
     use chonk_lib::metrics::proc_ip as ip;
@@ -69,70 +73,26 @@ mod linux {
         fs,
         io::{self, Write},
         os::fd::{AsRawFd, FromRawFd, OwnedFd},
+        path::Path,
         process::Command,
     };
-    fn sockets(all: bool) -> Result<Vec<Socket>> {
-        let mut rows = vec![];
-        for p in ["tcp", "tcp6", "udp", "udp6"] {
-            match fs::read_to_string(format!("/proc/net/{p}")) {
-                Ok(s) => rows.extend(parse(&s, p, all)),
-                Err(e) if e.kind() == io::ErrorKind::NotFound => (),
-                Err(e) => return Err(e.into()),
-            }
-        }
-        Ok(rows)
-    }
-    type SocketOwners = BTreeMap<u64, BTreeSet<(u32, String)>>;
-    fn owners(wanted: &BTreeSet<u64>) -> Result<(SocketOwners, bool)> {
-        let mut map = BTreeMap::<_, BTreeSet<_>>::new();
-        let mut hidden = false;
-        for e in fs::read_dir("/proc")?.flatten() {
-            let Ok(pid) = e.file_name().to_string_lossy().parse::<u32>() else {
-                continue;
-            };
-            let fds = match fs::read_dir(e.path().join("fd")) {
-                Ok(d) => d,
-                Err(e) => {
-                    hidden |= e.kind() == io::ErrorKind::PermissionDenied;
-                    continue;
-                }
-            };
-            let mut hits = BTreeSet::new();
-            for fd in fds.flatten() {
-                match fs::read_link(fd.path()) {
-                    Ok(link) => {
-                        if let Some(n) = link
-                            .to_str()
-                            .and_then(|s| {
-                                s.strip_prefix("socket:[")?.strip_suffix(']')?.parse().ok()
-                            })
-                            .filter(|n| wanted.contains(n))
-                        {
-                            hits.insert(n);
-                        }
-                    }
-                    Err(e) => hidden |= e.kind() == io::ErrorKind::PermissionDenied,
-                }
-            }
-            if !hits.is_empty() {
-                if let Ok(name) = fs::read_to_string(e.path().join("comm")) {
-                    for n in hits {
-                        map.entry(n)
-                            .or_default()
-                            .insert((pid, name.trim_end().into()));
-                    }
-                }
-            }
-        }
-        Ok((map, hidden))
+    fn process_name(path: &Path) -> Option<String> {
+        Some(
+            fs::read_to_string(path.join("comm"))
+                .ok()?
+                .trim_end()
+                .into(),
+        )
     }
     pub fn inspect(all: bool, kill: Option<(u16, bool, bool)>, machine: bool) -> Result<Value> {
-        let mut ss = sockets(all)?;
+        let root = Path::new("/");
+        let mut ss = snapshot::sockets(root, all)?;
         if let Some((port, ..)) = kill {
             ss.retain(|s| s.addr.port() == port);
             ensure!(!ss.is_empty(), "no listeners on {port}")
         }
-        let (map, hidden) = owners(&ss.iter().map(|s| s.inode).collect())?;
+        let (map, hidden) =
+            snapshot::owners(root, &ss.iter().map(|s| s.inode).collect(), process_name)?;
         let mut rows = vec![];
         let mut targets = BTreeSet::new();
         for s in ss {
@@ -187,7 +147,8 @@ mod linux {
                     entry.insert(unsafe { OwnedFd::from_raw_fd(fd as i32) });
                 }
             }
-            let (current, _) = owners(&targets.iter().map(|t| t.2).collect())?;
+            let (current, _) =
+                snapshot::owners(root, &targets.iter().map(|t| t.2).collect(), process_name)?;
             for (pid, name, inode) in targets {
                 ensure!(
                     current
@@ -302,6 +263,14 @@ fn resolve(name: &str, address: impl ToSocketAddrs) -> Result<Vec<std::net::Sock
 
 fn run(cli: Cli) -> Result<(Value, i32)> {
     match cli.cmd {
+        #[cfg(target_os = "linux")]
+        Cmd::Lease { command } => {
+            Ok((lease::run(std::path::Path::new("/"), command, cli.json)?, 0))
+        }
+        #[cfg(target_os = "linux")]
+        Cmd::Baseline { save } => Ok((snapshot::baseline(std::path::Path::new("/"), save)?, 0)),
+        #[cfg(target_os = "linux")]
+        Cmd::Drift => snapshot::drift(std::path::Path::new("/")),
         Cmd::Watch {
             host,
             timeout,
@@ -377,13 +346,32 @@ fn run(cli: Cli) -> Result<(Value, i32)> {
     }
 }
 fn main() {
-    let cli = Cli::parse();
+    let cli = Cli::try_parse().unwrap_or_else(|error| {
+        if error.use_stderr()
+            && std::env::args_os()
+                .take_while(|arg| arg != "--")
+                .any(|arg| arg == "--json")
+        {
+            let result = Err(anyhow::anyhow!("{}", error.render()));
+            std::process::exit(chonk_lib::report_versioned(result, true));
+        }
+        error.exit();
+    });
     let machine = cli.json;
+    let versioned = matches!(
+        cli.cmd,
+        Cmd::Lease { .. } | Cmd::Baseline { .. } | Cmd::Drift
+    );
     let result = run(cli);
     if matches!(&result, Ok((Value::Null, 0))) && !machine {
         return;
     }
-    std::process::exit(chonk_lib::report(result, machine))
+    let report = if versioned {
+        chonk_lib::report_versioned
+    } else {
+        chonk_lib::report
+    };
+    std::process::exit(report(result, machine))
 }
 #[cfg(test)]
 mod tests {
@@ -391,7 +379,7 @@ mod tests {
 
     #[test]
     fn local_dns_hint() {
-        for name in ["printer.local", "printer.LOCAL.", "ł.local"] {
+        for name in ["printer.local", "printer.LOCAL.", "\u{1f408}.local"] {
             assert!(super::resolution_error(name, "failed")
                 .to_string()
                 .contains("127.0.0.53"));

@@ -5,10 +5,10 @@ use serde_json::Value;
 mod cli;
 #[cfg(any(target_os = "linux", test))]
 mod policy;
+#[cfg(test)]
+use chonk_lib::duration;
 #[cfg(any(test, target_os = "linux"))]
 use chonk_lib::metrics::battery;
-#[cfg(test)]
-use cli::duration;
 use cli::Cli;
 #[cfg(target_os = "linux")]
 use cli::Cmd;
@@ -44,6 +44,9 @@ mod linux {
     }
     pub fn run(cmd: Cmd, machine: bool) -> Result<(Value, i32)> {
         let v = match cmd {
+            Cmd::Dive { mode, dry_run, .. } => {
+                super::policy::dive::run(std::path::Path::new("/"), mode, dry_run)?
+            }
             Cmd::Guard { mode } => {
                 if !matches!(mode, super::cli::Guard::Status) {
                     ensure!(chonk_lib::root(), "Run with sudo");
@@ -130,12 +133,28 @@ mod linux {
     }
 }
 fn main() {
-    let cli = Cli::parse();
+    let cli = Cli::try_parse().unwrap_or_else(|error| {
+        if error.use_stderr()
+            && std::env::args_os()
+                .take_while(|arg| arg != "--")
+                .any(|arg| arg == "--json")
+        {
+            let result = Err(anyhow::anyhow!("{}", error.render()));
+            std::process::exit(chonk_lib::report_versioned(result, true));
+        }
+        error.exit();
+    });
+    let versioned = matches!(cli.cmd, cli::Cmd::Dive { .. });
     #[cfg(target_os = "linux")]
     let result = linux::run(cli.cmd, cli.json);
     #[cfg(not(target_os = "linux"))]
     let result: Result<(Value, i32)> = Err(anyhow::anyhow!("nap requires Linux"));
-    std::process::exit(chonk_lib::report(result, cli.json))
+    let report = if versioned {
+        chonk_lib::report_versioned
+    } else {
+        chonk_lib::report
+    };
+    std::process::exit(report(result, cli.json))
 }
 #[cfg(test)]
 mod tests {

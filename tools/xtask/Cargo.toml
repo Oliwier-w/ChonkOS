@@ -8,6 +8,7 @@ publish = false
 anyhow.workspace = true
 clap.workspace = true
 clap_complete = "4"
+chonk-lib = { path = "../crates/chonk-lib" }
 flate2 = "1"
 md-5 = "0.10"
 serde_json.workspace = true

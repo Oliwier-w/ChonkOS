@@ -1,3 +1,4 @@
+use chonk_lib::duration;
 use clap::{Parser, Subcommand, ValueEnum};
 use std::ffi::OsString;
 
@@ -12,6 +13,16 @@ pub(super) struct Cli {
 #[derive(Subcommand)]
 pub(super) enum Cmd {
     Status,
+    /// Manage battery-triggered shutdown
+    #[command(args_conflicts_with_subcommands = true, subcommand_negates_reqs = true)]
+    Dive {
+        #[command(subcommand)]
+        mode: Option<Dive>,
+        #[arg(long, required = true)]
+        event: bool,
+        #[arg(long, requires = "event")]
+        dry_run: bool,
+    },
     /// Manage the hardware battery charge limit
     Guard {
         #[command(subcommand)]
@@ -30,6 +41,32 @@ pub(super) enum Cmd {
     Lid {
         mode: Mode,
     },
+}
+
+#[derive(Subcommand)]
+pub(super) enum Dive {
+    Enable {
+        #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u8).range(10..=50))]
+        threshold: u8,
+        #[arg(long, value_delimiter = ',', value_parser = service)]
+        services: Vec<String>,
+    },
+    Disable,
+    Status,
+}
+
+pub(super) fn service(value: &str) -> Result<String, String> {
+    if !value.is_empty()
+        && !value.starts_with('-')
+        && !value.contains("..")
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"@_.-".contains(&b))
+    {
+        Ok(value.into())
+    } else {
+        Err("invalid service name".into())
+    }
 }
 
 #[derive(Subcommand)]
@@ -62,29 +99,4 @@ pub(super) enum Mode {
     Sleep,
     Ignore,
     Status,
-}
-
-pub(super) fn duration(s: &str) -> Result<u64, String> {
-    let mut rest = s;
-    let mut total = 0u64;
-    while !rest.is_empty() {
-        let n = rest.bytes().take_while(u8::is_ascii_digit).count();
-        let value = rest[..n].parse::<u64>().map_err(|_| "invalid duration")?;
-        let factor = match rest.as_bytes().get(n) {
-            Some(b's') => 1,
-            Some(b'm') => 60,
-            Some(b'h') => 3600,
-            _ => return Err("expected s, m or h".into()),
-        };
-        total = value
-            .checked_mul(factor)
-            .and_then(|x| total.checked_add(x))
-            .ok_or("duration overflow")?;
-        rest = &rest[n + 1..];
-    }
-    if total == 0 {
-        Err("duration must be positive".into())
-    } else {
-        Ok(total)
-    }
 }

@@ -166,7 +166,7 @@ fn wifi(root: &Path, actions: &mut Vec<String>, warnings: &mut Vec<String>) -> R
     Ok(())
 }
 
-pub(in crate::policy) fn run(root: &Path, mode: Dark) -> Result<Value> {
+pub(in crate::policy) fn run(root: &Path, mode: Dark, manage_wifi: bool) -> Result<Value> {
     let mut actions = Vec::new();
     let mut warnings = Vec::new();
     let before = (mode == Dark::On).then(|| watts(root)).flatten();
@@ -177,7 +177,9 @@ pub(in crate::policy) fn run(root: &Path, mode: Dark) -> Result<Value> {
                 warnings.push("No controllable backlight detected".into());
             }
             blank_console(root, &mut actions, &mut warnings);
-            wifi(root, &mut actions, &mut warnings)?;
+            if manage_wifi {
+                wifi(root, &mut actions, &mut warnings)?;
+            }
         }
         Dark::Off => {
             backlight(root, mode, &mut actions, &mut warnings)?;

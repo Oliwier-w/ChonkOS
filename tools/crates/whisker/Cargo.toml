@@ -7,8 +7,13 @@ edition = "2021"
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
+serde.workspace = true
+sha2 = "0.10"
 chonk-lib = { path = "../chonk-lib" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"
+
+[dev-dependencies]
+tempfile.workspace = true
 

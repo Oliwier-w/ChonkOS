@@ -1,4 +1,6 @@
 mod dark;
+#[cfg(any(target_os = "linux", test))]
+pub(super) mod dive;
 mod guard;
 #[cfg(test)]
 mod tests;
@@ -63,5 +65,5 @@ pub(super) fn guard(root: &Path, mode: Guard) -> Result<Value> {
 }
 
 pub(super) fn dark(root: &Path, mode: Dark) -> Result<Value> {
-    dark::run(root, mode)
+    dark::run(root, mode, true)
 }

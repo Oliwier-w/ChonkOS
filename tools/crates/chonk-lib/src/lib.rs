@@ -92,12 +92,34 @@ pub fn output(cmd: &str, args: &[&str]) -> Result<String> {
     Ok(String::from_utf8(out.stdout)?)
 }
 pub fn root() -> bool {
-    fs::read_to_string("/proc/self/status")
+    root_at(Path::new("/"))
+}
+
+pub fn root_at(root_dir: &Path) -> bool {
+    fs::read_to_string(root_dir.join("proc/self/status"))
         .unwrap_or_default()
         .lines()
         .find_map(|l| l.strip_prefix("Uid:"))
         .and_then(|v| v.split_whitespace().nth(1))
         == Some("0")
+}
+
+pub fn report_versioned(result: Result<(serde_json::Value, i32)>, machine: bool) -> i32 {
+    if !machine {
+        return report(result, false);
+    }
+    let (mut value, code) = match result {
+        Ok(result) => result,
+        Err(error) => (serde_json::json!({"error": format!("{error:#}")}), 1),
+    };
+    value["schema_version"] = 1.into();
+    if value.get("timestamp").is_none() {
+        match utc_now() {
+            Ok(timestamp) => value["timestamp"] = timestamp.into(),
+            Err(error) => return report(Err(error), true),
+        }
+    }
+    report(Ok((value, code)), true)
 }
 pub fn bytes(n: u64) -> String {
     if n >= 1 << 30 {
@@ -203,6 +225,31 @@ pub fn report(result: Result<(serde_json::Value, i32)>, machine: bool) -> i32 {
         table(&data);
     }
     code
+}
+
+pub fn duration(s: &str) -> Result<u64, String> {
+    let mut rest = s;
+    let mut total = 0u64;
+    while !rest.is_empty() {
+        let n = rest.bytes().take_while(u8::is_ascii_digit).count();
+        let value = rest[..n].parse::<u64>().map_err(|_| "invalid duration")?;
+        let factor = match rest.as_bytes().get(n) {
+            Some(b's') => 1,
+            Some(b'm') => 60,
+            Some(b'h') => 3600,
+            _ => return Err("expected s, m or h".into()),
+        };
+        total = value
+            .checked_mul(factor)
+            .and_then(|x| total.checked_add(x))
+            .ok_or("duration overflow")?;
+        rest = &rest[n + 1..];
+    }
+    if total == 0 {
+        Err("duration must be positive".into())
+    } else {
+        Ok(total)
+    }
 }
 
 #[cfg(test)]
