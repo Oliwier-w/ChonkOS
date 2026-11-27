@@ -5,7 +5,7 @@ Acquire-By-Hash: yes
 Architectures: amd64 all
 Codename: trixie
 Components: main
-Date: Fri, 27 Nov 2026 13:30:24 +0000
+Date: Fri, 27 Nov 2026 13:42:59 +0000
 Label: ChonkOS
 Origin: ChonkOS
 Suite: trixie
@@ -18,8 +18,8 @@ SHA256:
  0b484ab01f5d8dacaf3c976b91173cb877adfcfcd80fb68277a8917dcb8b6c5a              752 main/binary-amd64/Packages.xz
 -----BEGIN PGP SIGNATURE-----
 
-iHUEARYIAB0WIQS323avxljg63nVj3QgNenAMvgetgUCawmF8AAKCRAgNenAMvge
-tgOIAQCiFaX8UYf4QZOZ0vWtuUwaViRjpPdbWZ+gjRBKY0wXHgEAzRmoHunbcNlF
-DUNtS7kPyf8MuKMw6VpXg3miXQuh5gs=
-=TLdr
+iHUEARYIAB0WIQS323avxljg63nVj3QgNenAMvgetgUCawmI4wAKCRAgNenAMvge
+tgCyAP9hvKkaGBUm1fexfT2/n/dltoDVKYCS6ENb0MxH7+2UpwD9HJMGoqlFS/a4
+j7ZF2gzvw2UWmRAF/LxpNdgM6fzmfQw=
+=Dd3h
 -----END PGP SIGNATURE-----
