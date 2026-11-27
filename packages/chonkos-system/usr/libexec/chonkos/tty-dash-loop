@@ -1,0 +1,11 @@
+#!/bin/sh
+# ChonkOS TTY dashboard loop: refresh `chonk card --tty` on the console
+# TTY provided by chonkos-tty-dash@.service until the unit is stopped.
+set -e
+
+trap 'exit 0' TERM INT
+
+while :; do
+    /usr/bin/chonk card --tty || true
+    sleep 15
+done

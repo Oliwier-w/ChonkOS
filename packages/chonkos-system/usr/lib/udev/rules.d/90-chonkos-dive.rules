@@ -1,0 +1,4 @@
+# ChonkOS battery event hook: hand power_supply changes to a systemd oneshot.
+# Long-running work never runs directly from udev RUN+=; the rule only
+# schedules chonkos-nap-dive.service, which is gated by a marker file.
+SUBSYSTEM=="power_supply", ACTION=="change", TAG+="systemd", ENV{SYSTEMD_WANTS}="chonkos-nap-dive.service"

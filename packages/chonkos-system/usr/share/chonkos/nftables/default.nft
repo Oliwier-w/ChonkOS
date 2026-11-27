@@ -1,0 +1,36 @@
+#!/usr/sbin/nft -f
+# ChonkOS base firewall policy (IPv4 and IPv6 in one inet table).
+#
+# `whisker lease` publishes temporary port openings directly into the two
+# timeout sets below. The kernel expires the entries on its own, so no
+# userspace daemon has to track or revoke leases.
+
+table inet chonkos_filter {
+    # Native expiring sets fed by `whisker lease`; entries carry their own
+    # timeout and disappear without any further action from userspace.
+    set chonkos_leases_tcp {
+        type inet_service
+        flags timeout
+    }
+
+    set chonkos_leases_udp {
+        type inet_service
+        flags timeout
+    }
+
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        iifname "lo" accept
+        ct state established,related accept
+        ip protocol icmp accept
+        ip6 nexthdr ipv6-icmp accept
+
+        # Temporary ports leased by `whisker lease`.
+        tcp dport @chonkos_leases_tcp accept
+        udp dport @chonkos_leases_udp accept
+    }
+}
+
+# Local drop-ins managed outside this package are never clobbered.
+include "/etc/nftables.d/*.nft"

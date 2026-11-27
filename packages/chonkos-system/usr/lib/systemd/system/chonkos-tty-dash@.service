@@ -1,0 +1,16 @@
+[Unit]
+Description=ChonkOS Homelab Status Dashboard on %I
+After=systemd-user-sessions.service network-online.target
+Conflicts=getty@%i.service
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/chonkos/tty-dash-loop
+StandardInput=null
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/%I
+TTYReset=yes
+TTYVHangup=yes
+Restart=always
+RestartSec=5

@@ -106,7 +106,10 @@ fn copy_tree(source: &Path, destination: &Path) -> Result<()> {
             if template {
                 target.set_extension("");
             }
+            // Scripts under usr/libexec/chonkos are started directly by
+            // systemd units, so they must stay executable in the package.
             let executable = destination.ends_with("etc/update-motd.d")
+                || destination.ends_with("usr/libexec/chonkos")
                 || (destination.ends_with("DEBIAN")
                     && matches!(
                         target.file_name().and_then(OsStr::to_str),

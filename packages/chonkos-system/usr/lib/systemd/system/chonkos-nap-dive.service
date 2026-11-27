@@ -1,0 +1,7 @@
+[Unit]
+Description=ChonkOS Battery UPS Event Handler
+ConditionPathExists=/var/lib/chonkos/nap-dive.enabled
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nap dive --event
