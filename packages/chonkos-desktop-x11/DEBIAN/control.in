@@ -4,7 +4,7 @@ Section: x11
 Priority: optional
 Architecture: all
 Maintainer: Oliwier-w <oliwier-w@users.noreply.github.com>
-Depends: chonkos-core (= {{VERSION}}), i3-wm, dunst, xorg, xinit, rofi, xclip, scrot, brightnessctl, pipewire-audio, greetd, tuigreet, fonts-jetbrains-mono
+Depends: chonkos-core (= {{VERSION}}), i3-wm, dunst, xserver-xorg-core, xserver-xorg-input-libinput, libgl1-mesa-dri, xinit, xterm | x-terminal-emulator, rofi, xclip, scrot, brightnessctl, pipewire-audio, greetd, tuigreet, fonts-jetbrains-mono
 Conflicts: chonkos-desktop
 Description: ChonkOS X11 fallback desktop (i3 + Dunst) for legacy NVIDIA GPUs
  Flat Arctic i3 session with Dunst notifications and Rofi launcher for
