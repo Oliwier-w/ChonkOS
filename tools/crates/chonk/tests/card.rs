@@ -30,3 +30,28 @@ fn card_supports_no_color() {
     assert!(text.contains("ChonkOS"));
     assert!(!text.contains("\x1b["));
 }
+#[test]
+fn waybar_prints_one_json_line() {
+    let temp = tempfile::tempdir().unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_chonk"))
+        .args(["mood", "--waybar"])
+        .env("PATH", temp.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert_eq!(stdout.lines().count(), 1);
+    let value: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(value["text"], "CHONK");
+    let state = value["alt"].as_str().unwrap();
+    assert!(matches!(state, "hot" | "calm"));
+    assert_eq!(
+        value["class"],
+        serde_json::json!(["chonky", format!("state-{state}")])
+    );
+    let tooltip = value["tooltip"].as_str().unwrap();
+    assert!(tooltip.starts_with(&format!("State: {state}\nPSS: ")));
+    for label in ["\nZRAM: ", "\nTemp: ", "\nPorts: "] {
+        assert!(tooltip.contains(label));
+    }
+}

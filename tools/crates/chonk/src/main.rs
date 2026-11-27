@@ -1,5 +1,7 @@
 mod card;
+mod dashboard;
 mod profile;
+mod session;
 mod trial;
 
 use anyhow::{anyhow, ensure, Result};
@@ -183,6 +185,13 @@ fn release_field<'a>(contents: &'a str, key: &str) -> Option<&'a str> {
 
 fn execute(cmd: Cmd) -> Result<(Value, bool)> {
     match cmd {
+        Cmd::Apply { config, dry_run } => Ok((session::apply(config.as_deref(), dry_run)?, true)),
+        Cmd::Mode {
+            name,
+            dark,
+            dry_run,
+        } => Ok((session::mode(&name, dark, dry_run)?, true)),
+        Cmd::Mood { .. } => Ok((dashboard::mood(), true)),
         Cmd::Card { .. } => Ok((card::collect()?, true)),
         Cmd::Try { .. } => unreachable!(),
         Cmd::Profile { profile, dark } => Ok((profile::execute(profile, dark)?, true)),
@@ -237,7 +246,9 @@ fn execute(cmd: Cmd) -> Result<(Value, bool)> {
             let firewall_warning = (chonk_lib::unit_active("ufw.service")
                 && chonk_lib::unit_active("nftables.service"))
             .then_some("ufw and nftables are both active; Netfilter policies may conflict");
-            let ok = id
+            let (config, nvidia, valid) = session::doctor();
+            let ok = valid
+                && id
                 && parent_debian
                 && id_like_debian
                 && sources
@@ -246,7 +257,7 @@ fn execute(cmd: Cmd) -> Result<(Value, bool)> {
                 && disk.is_some()
                 && failed.as_ref().is_some_and(|s| s.trim().is_empty());
             Ok((
-                json!({"timestamp":chonk_lib::utc_now()?,"chonkos":id,"chonkos-system":system,"apt_sources":sources,"keyring":key,"dpkg_parent_debian":parent_debian,"id_like_debian":id_like_debian,"zram_active":swap,"firewall_warning":firewall_warning,"root_used_percent":disk,"disk_warning":disk.is_some_and(|v|v>85),"failed_units":failed}),
+                json!({"chonk_toml":config,"nvidia_driver":nvidia,"timestamp":chonk_lib::utc_now()?,"chonkos":id,"chonkos-system":system,"apt_sources":sources,"keyring":key,"dpkg_parent_debian":parent_debian,"id_like_debian":id_like_debian,"zram_active":swap,"firewall_warning":firewall_warning,"root_used_percent":disk,"disk_warning":disk.is_some_and(|v|v>85),"failed_units":failed}),
                 ok,
             ))
         }
@@ -309,6 +320,8 @@ fn execute(cmd: Cmd) -> Result<(Value, bool)> {
 }
 fn main() {
     let cli = Cli::parse();
+    let tty = matches!(cli.command, Cmd::Card { tty: true, .. });
+    let machine = cli.json || matches!(cli.command, Cmd::Mood { waybar: true });
     let plain = match cli.command {
         Cmd::Try { label, command } => {
             let result = trial::run(label, command, cli.json);
@@ -318,17 +331,19 @@ fn main() {
             };
             std::process::exit(code);
         }
-        Cmd::Card { plain } => Some(plain),
+        Cmd::Card { plain, .. } => Some(plain),
         _ => None,
     };
     let (value, ok) =
         execute(cli.command).unwrap_or_else(|e| (json!({"error":format!("{e:#}")}), false));
-    if cli.json {
+    if machine {
         println!("{value}")
     } else if let Some(doc) = value["docs"].as_str() {
         println!("{doc}")
     } else if let Some(err) = value["error"].as_str() {
         eprintln!("{err}")
+    } else if tty {
+        dashboard::tty(&value)
     } else if let Some(plain) = plain {
         card::render(&value, plain)
     } else if let Some(obj) = value.as_object() {

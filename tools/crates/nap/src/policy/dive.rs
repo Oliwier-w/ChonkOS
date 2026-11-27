@@ -196,6 +196,7 @@ mod tests {
             &["dive", "--event", "status"][..],
             &["dive", "enable", "--services=bad..service"][..],
             &["dive", "enable", "--services=-bad.service"][..],
+            &["dive", "enable", "--services=bad;service"][..],
             &["dive", "enable", "--threshold", "51"][..],
         ] {
             assert!(
@@ -241,8 +242,19 @@ mod tests {
             "ac_online"
         );
         fs::write(ac.join("online"), "0\n")?;
+        fs::write(battery.join("capacity"), "15\n")?;
         let dry = run_with(path, None, true, forbidden)?;
         assert_eq!(dry["status"], "dry_run");
+        assert_eq!(
+            dry["steps"],
+            json!([
+                ["seal", "mark", "powerloss"],
+                ["systemctl", "stop", "web.service"],
+                ["sync"],
+                ["systemctl", "poweroff"]
+            ])
+        );
+        fs::write(battery.join("capacity"), "20\n")?;
         let mut calls = Vec::new();
         let result = run_with(path, None, false, |cmd, args| {
             calls.push(
@@ -258,7 +270,7 @@ mod tests {
         assert_eq!(result["status"], "poweroff_requested");
         assert_eq!(result["warnings"].as_array().unwrap().len(), 1);
 
-        fs::write(battery.join("capacity"), "21\n")?;
+        fs::write(battery.join("capacity"), "45\n")?;
         let wifi = path.join("etc/NetworkManager/conf.d/90-chonkos-wifi.conf");
         fs::create_dir_all(wifi.parent().unwrap())?;
         fs::write(&wifi, "Existing settings")?;

@@ -253,6 +253,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn postgres_listener_changes() {
+        let listener = |port, addr: &str, scope, exe: &str| Entry {
+            proto: "tcp".into(),
+            bind_addr: addr.into(),
+            port,
+            scope,
+            exe_path: exe.into(),
+        };
+        let old = [listener(
+            5432,
+            "127.0.0.1",
+            Scope::Loopback,
+            "/usr/bin/postgres",
+        )];
+        assert_eq!(compare(&old, &old), (vec![], 0));
+        for (entry, severity, reason) in [
+            (
+                listener(5432, "0.0.0.0", Scope::Exposed, "/usr/bin/postgres"),
+                "CRITICAL",
+                "promoted_to_exposed",
+            ),
+            (
+                listener(5432, "127.0.0.1", Scope::Loopback, "/opt/postgres"),
+                "CRITICAL",
+                "executable_changed",
+            ),
+        ] {
+            let (changes, code) = compare(&old, &[entry]);
+            assert_eq!(code, 2);
+            assert_eq!(changes.len(), 1);
+            assert_eq!(changes[0]["severity"], severity);
+            assert_eq!(changes[0]["reason"], reason);
+        }
+        let live = [
+            listener(5432, "127.0.0.1", Scope::Loopback, "/usr/bin/postgres"),
+            listener(5433, "127.0.0.1", Scope::Loopback, "/opt/postgres"),
+        ];
+        let (changes, code) = compare(&old, &live);
+        assert_eq!(code, 2);
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0]["severity"], "WARNING");
+        assert_eq!(changes[0]["entry"]["port"], 5433);
+    }
+
+    #[test]
     fn baseline_round_trip_and_drift() -> Result<()> {
         let root = tempfile::tempdir()?;
         let path = root.path();

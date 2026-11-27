@@ -11,10 +11,30 @@ pub(super) struct Cli {
 #[derive(Subcommand)]
 pub(super) enum Cmd {
     Doctor,
+    Apply {
+        #[arg(long)]
+        config: Option<std::path::PathBuf>,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    Mode {
+        #[arg(value_parser=["desktop","homelab","status"])]
+        name: String,
+        #[arg(long)]
+        dark: bool,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    Mood {
+        #[arg(long)]
+        waybar: bool,
+    },
     /// Show hardware health
     Card {
         #[arg(long)]
         plain: bool,
+        #[arg(long)]
+        tty: bool,
     },
     /// Snapshot system configuration, run a command, and show changes
     Try {

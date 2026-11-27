@@ -145,8 +145,18 @@ mod tests {
 
     #[test]
     fn validates_inputs_and_passes_explicit_nft_arguments() -> Result<()> {
+        for (input, expected) in [("10s", 10), ("15m", 900), ("2h", 7200), ("1h30m", 5400)] {
+            let cli = Cli::try_parse_from(["whisker", "lease", "add", "65535", "--for", input])?;
+            assert!(
+                matches!(cli.cmd, crate::Cmd::Lease { command: Lease::Add { port:65535, seconds, .. } } if seconds == expected)
+            );
+        }
         for (port, duration, proto) in [
             ("0", "10s", "tcp"),
+            ("22", "0s", "tcp"),
+            ("22", "5s", "tcp"),
+            ("22", "48h", "tcp"),
+            ("22", "1h; rm -rf /", "tcp"),
             ("65536", "10s", "tcp"),
             ("22", "9s", "tcp"),
             ("22", "24h1s", "tcp"),

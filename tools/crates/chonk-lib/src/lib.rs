@@ -9,6 +9,7 @@ use std::{
 
 pub const LID_CONFIG: &str = "/etc/systemd/logind.conf.d/90-chonkos-lid.conf";
 pub const SEAL_STORE: &str = "/var/lib/chonkos/seals";
+pub mod config;
 pub mod metrics;
 
 pub fn utc_now() -> Result<String> {
