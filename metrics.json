@@ -1,0 +1,25 @@
+{
+  "binaries": {
+    "chonk": {
+      "sha256": "b636ac9d32691b9fff679dc3d6ff8ad58f4dd22ef75a982fdd70d6ce46dafa66",
+      "size_bytes": 918360
+    },
+    "nap": {
+      "sha256": "16ef7e55cc34c2adb00937243815066d857415f55c1de62a64d137a2cef231ba",
+      "size_bytes": 811800
+    },
+    "scale": {
+      "sha256": "f0c735b7edd0ff7ba85c14461af9b1806361280ffb45a2f8cd362f9a45412f72",
+      "size_bytes": 750392
+    },
+    "seal": {
+      "sha256": "8f8d4e7ead3bb7f49c188d5d76d78b3fecd553132a2d7283fe2b86fec64de5f2",
+      "size_bytes": 844568
+    },
+    "whisker": {
+      "sha256": "75348a010114806ab6529f8761422e652ecb0cdeed4121f84ef87d33e9315b8d",
+      "size_bytes": 881576
+    }
+  },
+  "version": "0.4.0"
+}
